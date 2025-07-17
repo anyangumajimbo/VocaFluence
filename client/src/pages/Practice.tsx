@@ -7,7 +7,6 @@ import {
     MicOff,
     Play,
     Pause,
-    Square,
     Upload,
     CheckCircle,
     AlertCircle,
@@ -52,7 +51,7 @@ export const Practice: React.FC = () => {
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const audioChunksRef = useRef<Blob[]>([])
-    const timerRef = useRef<NodeJS.Timeout | null>(null)
+    const timerRef = useRef<number | null>(null)
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
     useEffect(() => {
@@ -207,8 +206,8 @@ export const Practice: React.FC = () => {
                                 <div
                                     key={script._id}
                                     className={`p-4 border rounded-lg cursor-pointer transition-colors ${selectedScript?._id === script._id
-                                            ? 'border-primary-500 bg-primary-50'
-                                            : 'border-gray-200 hover:border-gray-300'
+                                        ? 'border-primary-500 bg-primary-50'
+                                        : 'border-gray-200 hover:border-gray-300'
                                         }`}
                                     onClick={() => setSelectedScript(script)}
                                 >

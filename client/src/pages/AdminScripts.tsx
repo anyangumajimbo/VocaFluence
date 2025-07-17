@@ -6,11 +6,7 @@ import {
     Plus,
     Edit,
     Trash2,
-    Upload,
     Search,
-    Filter,
-    Globe,
-    Target,
     Save,
     X
 } from 'lucide-react'
@@ -84,26 +80,28 @@ export const AdminScripts: React.FC = () => {
 
     const onSubmit = async (data: ScriptForm) => {
         try {
-            const scriptData = {
-                ...data,
-                tags: data.tags.split(',').map(tag => tag.trim()).filter(tag => tag)
-            }
+            const formData = new FormData();
+            formData.append('title', data.title);
+            formData.append('textContent', data.textContent);
+            formData.append('language', data.language);
+            formData.append('difficulty', data.difficulty);
+            formData.append('tags', data.tags);
 
             if (editingScript) {
-                await scriptsAPI.update(editingScript._id, scriptData)
-                toast.success('Script updated successfully')
+                await scriptsAPI.update(editingScript._id, Object.fromEntries(formData.entries()));
+                toast.success('Script updated successfully');
             } else {
-                await scriptsAPI.create(scriptData)
-                toast.success('Script created successfully')
+                await scriptsAPI.create(formData);
+                toast.success('Script created successfully');
             }
 
-            reset()
-            setShowForm(false)
-            setEditingScript(null)
-            fetchScripts()
+            reset();
+            setShowForm(false);
+            setEditingScript(null);
+            fetchScripts();
         } catch (error) {
-            console.error('Error saving script:', error)
-            toast.error('Failed to save script')
+            console.error('Error saving script:', error);
+            toast.error('Failed to save script');
         }
     }
 

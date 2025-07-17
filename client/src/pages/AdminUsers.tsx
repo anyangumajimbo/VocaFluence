@@ -3,14 +3,9 @@ import { usersAPI } from '../services/api'
 import {
     Users,
     Search,
-    Filter,
     Eye,
     UserCheck,
-    UserX,
-    Calendar,
-    Activity,
-    Globe,
-    Target
+    UserX
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -201,19 +196,16 @@ export const AdminUsers: React.FC = () => {
 
                                         <div className="flex items-center space-x-4 text-sm text-gray-500">
                                             <div className="flex items-center">
-                                                <Globe className="h-4 w-4 mr-1" />
                                                 <span className="mr-1">{getLanguageFlag(user.preferredLanguage)}</span>
                                                 <span className="capitalize">{user.preferredLanguage}</span>
                                             </div>
 
                                             <div className="flex items-center">
-                                                <Calendar className="h-4 w-4 mr-1" />
                                                 <span>Joined {new Date(user.createdAt).toLocaleDateString()}</span>
                                             </div>
 
                                             {user.lastLogin && (
                                                 <div className="flex items-center">
-                                                    <Activity className="h-4 w-4 mr-1" />
                                                     <span>Last login {new Date(user.lastLogin).toLocaleDateString()}</span>
                                                 </div>
                                             )}
@@ -232,8 +224,8 @@ export const AdminUsers: React.FC = () => {
                                     <button
                                         onClick={() => handleToggleActive(user._id, user.isActive)}
                                         className={`p-2 transition-colors ${user.isActive
-                                                ? 'text-gray-400 hover:text-error-600'
-                                                : 'text-gray-400 hover:text-success-600'
+                                            ? 'text-gray-400 hover:text-error-600'
+                                            : 'text-gray-400 hover:text-success-600'
                                             }`}
                                         title={user.isActive ? 'Deactivate user' : 'Activate user'}
                                     >

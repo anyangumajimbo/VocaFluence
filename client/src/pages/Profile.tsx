@@ -1,10 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../contexts/AuthContext'
-import { usersAPI, remindersAPI } from '../services/api'
+import { usersAPI } from '../services/api'
 import {
     User,
-    Settings,
     Bell,
     Globe,
     Calendar,
@@ -42,9 +41,7 @@ export const Profile: React.FC = () => {
 
     const {
         register,
-        handleSubmit,
-        formState: { errors },
-        reset
+        handleSubmit
     } = useForm<ProfileForm>({
         defaultValues: {
             preferredLanguage: user?.preferredLanguage || 'english',
@@ -195,8 +192,8 @@ export const Profile: React.FC = () => {
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id as any)}
                                 className={`py-2 px-1 border-b-2 font-medium text-sm flex items-center ${activeTab === tab.id
-                                        ? 'border-primary-500 text-primary-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                                    ? 'border-primary-500 text-primary-600'
+                                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
                                     }`}
                             >
                                 <tab.icon className="h-4 w-4 mr-2" />

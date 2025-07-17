@@ -5,7 +5,6 @@ import {
     TrendingUp,
     Target,
     Calendar,
-    Filter,
     Search,
     Play,
     Eye,

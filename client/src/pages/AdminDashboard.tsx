@@ -1,15 +1,12 @@
 import { useState, useEffect } from 'react'
-import { usersAPI, remindersAPI } from '../services/api'
 import {
     BarChart3,
-    Users,
     FileText,
     TrendingUp,
-    Calendar,
     Clock,
     Activity,
     Globe,
-    Target
+    Users
 } from 'lucide-react'
 
 interface DashboardStats {

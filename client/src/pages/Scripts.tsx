@@ -4,13 +4,9 @@ import { scriptsAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import {
     BookOpen,
-    Filter,
     Search,
     Play,
-    Globe,
-    TrendingUp,
-    Clock,
-    Eye
+    Clock
 } from 'lucide-react'
 
 interface Script {

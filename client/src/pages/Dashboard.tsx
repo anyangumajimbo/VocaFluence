@@ -8,7 +8,6 @@ import {
     BookOpen,
     TrendingUp,
     Calendar,
-    Target,
     Clock,
     Award
 } from 'lucide-react'
