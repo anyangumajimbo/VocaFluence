@@ -5,6 +5,8 @@ import { useAuth } from '../contexts/AuthContext'
 import { Eye, EyeOff, Mail, Lock, User, Globe } from 'lucide-react'
 
 interface RegisterForm {
+    firstName: string;
+    lastName: string;
     email: string
     password: string
     confirmPassword: string
@@ -36,7 +38,14 @@ export const Register: React.FC = () => {
     const onSubmit = async (data: RegisterForm) => {
         setIsLoading(true)
         try {
-            await registerUser(data.email, data.password, data.role, data.preferredLanguage)
+            await registerUser(
+                data.email,
+                data.password,
+                data.role,
+                data.preferredLanguage,
+                data.firstName,
+                data.lastName
+            )
             navigate('/dashboard')
         } catch (error) {
             console.error('Registration error:', error)
@@ -59,6 +68,41 @@ export const Register: React.FC = () => {
 
                 <form className="mt-8 space-y-6" onSubmit={handleSubmit(onSubmit)}>
                     <div className="space-y-4">
+                        {/* First Name */}
+                        <div>
+                            <label htmlFor="firstName" className="block text-sm font-medium text-gray-700">
+                                First Name
+                            </label>
+                            <div className="mt-1 relative">
+                                <input
+                                    {...register('firstName', { required: 'First name is required' })}
+                                    type="text"
+                                    className="input-field"
+                                    placeholder="Enter your first name"
+                                />
+                            </div>
+                            {errors.firstName && (
+                                <p className="mt-1 text-sm text-error-600">{errors.firstName.message}</p>
+                            )}
+                        </div>
+                        {/* Last Name */}
+                        <div>
+                            <label htmlFor="lastName" className="block text-sm font-medium text-gray-700">
+                                Last Name
+                            </label>
+                            <div className="mt-1 relative">
+                                <input
+                                    {...register('lastName', { required: 'Last name is required' })}
+                                    type="text"
+                                    className="input-field"
+                                    placeholder="Enter your last name"
+                                />
+                            </div>
+                            {errors.lastName && (
+                                <p className="mt-1 text-sm text-error-600">{errors.lastName.message}</p>
+                            )}
+                        </div>
+
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
                                 Email address

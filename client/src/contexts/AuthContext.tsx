@@ -19,7 +19,14 @@ interface AuthContextType {
     user: User | null
     token: string | null
     login: (email: string, password: string) => Promise<void>
-    register: (email: string, password: string, role?: string, preferredLanguage?: string) => Promise<void>
+    register: (
+        email: string,
+        password: string,
+        role?: string,
+        preferredLanguage?: string,
+        firstName?: string,
+        lastName?: string
+    ) => Promise<void>
     logout: () => void
     updateProfile: (data: Partial<User>) => Promise<void>
     loading: boolean
@@ -78,13 +85,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
     }
 
-    const register = async (email: string, password: string, role = 'student', preferredLanguage = 'english') => {
+    const register = async (
+        email: string,
+        password: string,
+        role = 'student',
+        preferredLanguage = 'english',
+        firstName = '',
+        lastName = ''
+    ) => {
         try {
             const response = await api.post('/auth/register', {
                 email,
                 password,
                 role,
-                preferredLanguage
+                preferredLanguage,
+                firstName,
+                lastName
             })
             const { token: newToken, user: userData } = response.data
 
