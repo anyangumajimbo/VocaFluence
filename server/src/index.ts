@@ -72,8 +72,11 @@ app.use('*', (req, res) => {
 
 // Database connection
 const connectDB = async () => {
+    const mongoURI = process.env.MONGO_URI;
+    if (!mongoURI) {
+        throw new Error("MONGO_URI is not defined in the environment variables");
+    }
     try {
-        const mongoURI = process.env.MONGO_URI || 'mongodb://localhost:27017/vocfluence';
         await mongoose.connect(mongoURI);
         console.log('✅ MongoDB connected successfully');
     } catch (error) {
