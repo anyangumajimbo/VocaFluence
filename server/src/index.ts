@@ -35,6 +35,7 @@ app.use(helmet());
 app.use(cors({
     origin: [
         'https://voca-fluence-client.vercel.app',
+        'https://vocafluence-client.vercel.app',
         'http://localhost:5173'
     ],
     credentials: true
