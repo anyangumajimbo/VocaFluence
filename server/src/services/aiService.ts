@@ -53,7 +53,7 @@ export class AIService {
 
             return {
                 transcript: transcription.text,
-                confidence: transcription.verbose_json?.segments?.[0]?.avg_logprob || 0.8
+                confidence: 0.8 // Default confidence since verbose_json structure may vary
             };
         } catch (error) {
             console.error('Whisper API error:', error);
