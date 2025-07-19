@@ -8,7 +8,6 @@
 - **User Authentication**: Secure login/register with JWT
 - **Script Management**: Browse and select training scripts by language
 - **Voice Recording**: Record audio using browser MediaRecorder API
-- **AI-Powered Transcription**: Real-time audio-to-text conversion using OpenAI Whisper API
 - **AI Feedback**: Get instant scoring and feedback comments
 - **Progress Tracking**: View history, statistics, and improvement trends
 - **Practice Schedule**: Set up daily/weekly practice reminders
@@ -21,11 +20,10 @@
 - **Reminder System**: Send custom reminders to students
 
 ### 🤖 AI Features
-- **OpenAI Whisper Integration**: Real-time audio-to-text conversion
+- **Voice-to-Text**: Convert audio recordings to text (simulated for MVP)
 - **Scoring Algorithm**: Calculate accuracy, fluency, and overall scores
-- **Feedback Generation**: Provide targeted feedback comments per session
+- **Feedback Generation**: Provide 3 targeted feedback comments per session
 - **Progress Analysis**: Track improvement over time
-- **Transcript Comparison**: Side-by-side comparison of original script vs. user speech
 
 ## 🛠 Tech Stack
 
@@ -36,7 +34,6 @@
 - **Multer** for file uploads
 - **NodeMailer** for email notifications
 - **node-cron** for scheduled reminders
-- **OpenAI SDK** for Whisper API integration
 
 ### Frontend
 - **React 18** with **TypeScript**
@@ -45,53 +42,102 @@
 - **React Router** for navigation
 - **React Hook Form** for form handling
 - **Axios** for API communication
+- **Lucide React** for icons
+- **Recharts** for data visualization
 
-## 🚀 Setup Instructions
+### Development Tools
+- **pnpm** for package management
+- **ESLint** for code linting
+- **Prettier** for code formatting
+
+## 🚀 Quick Start
 
 ### Prerequisites
-- Node.js (v16 or higher)
+- Node.js 18+ 
+- pnpm (install with `npm install -g pnpm`)
 - MongoDB (local or cloud)
-- OpenAI API key (for Whisper functionality)
 
-### Backend Setup
-1. Navigate to the server directory:
+### Installation
+
+1. **Clone the repository**
    ```bash
-   cd server
+   git clone <repository-url>
+   cd VocaFluence
    ```
 
-2. Install dependencies:
+2. **Install dependencies**
    ```bash
-   pnpm install
+   pnpm install:all
    ```
 
-3. Create a `.env` file with your configuration:
+3. **Environment Setup**
+
+   Create `.env` file in the `server` directory:
    ```env
-   MONGODB_URI=mongodb://localhost:27017/vocfluence
-   JWT_SECRET=your-super-secret-jwt-key
-   OPENAI_API_KEY=your-openai-api-key-here
+   MONGO_URI=mongodb://localhost:27017/vocfluence
+   JWT_SECRET=your_super_secure_jwt_secret_key_here
    PORT=5000
+   NODE_ENV=development
+   
+   # Email configuration for reminders
+   EMAIL_HOST=smtp.gmail.com
+   EMAIL_PORT=587
+   EMAIL_USER=your-email@gmail.com
+   EMAIL_PASS=your-app-password
+   
+   # File upload configuration
+   UPLOAD_PATH=./uploads
+   MAX_FILE_SIZE=10485760
    ```
 
-4. Start the development server:
+   Create `.env.production` file in the `client` directory:
+   ```env
+   VITE_API_URL=https://your-backend-api-url.onrender.com
+   ```
+
+4. **Start Development Servers**
    ```bash
+   # Start both frontend and backend
    pnpm dev
+   
+   # Or start individually
+   pnpm --filter server dev    # Backend on http://localhost:5000
+   pnpm --filter client dev    # Frontend on http://localhost:5173
    ```
 
-### Frontend Setup
-1. Navigate to the client directory:
-   ```bash
-   cd client
-   ```
+5. **Access the Application**
 
-2. Install dependencies:
-   ```bash
-   pnpm install
-   ```
+   -## 📊 Pitch Deck: [Click this link](https://www.canva.com/design/DAGtbyLDj3A/0nbMlHg3k9OyQJnSjmUyjA/edit?utm_content=DAGtbyLDj3A&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton) to view the full pitch deck on Canva.
+   - Frontend: [View Project Live](https://voca-fluence-client.vercel.app/)
+   - Backend API: [Visit Backend API](https://vocafluence.onrender.com/api)
+   - [Backend Health Check](https://vocafluence.onrender.com/api/health)
 
-3. Start the development server:
-   ```bash
-   pnpm dev
-   ```
+## 📁 Project Structure
+
+```
+VocaFluence/
+├── client/                 # Frontend React app
+│   ├── src/
+│   │   ├── components/     # Reusable components
+│   │   ├── contexts/       # React contexts
+│   │   ├── pages/          # Page components
+│   │   ├── services/       # API services
+│   │   └── types/          # TypeScript types
+│   ├── public/             # Static assets
+│   └── package.json
+├── server/                 # Backend Node.js app
+│   ├── src/
+│   │   ├── controllers/    # Route controllers
+│   │   ├── middleware/     # Express middleware
+│   │   ├── models/         # MongoDB models
+│   │   ├── routes/         # API routes
+│   │   ├── services/       # Business logic
+│   │   └── index.ts        # Server entry point
+│   ├── uploads/            # File uploads
+│   └── package.json
+├── package.json            # Root package.json
+└── README.md
+```
 
 ## 🎯 Core Workflow
 
@@ -106,14 +152,12 @@
 ### 3. Practice Session
 - Student reads the script aloud while recording
 - Audio is uploaded to server for processing
-- **OpenAI Whisper API transcribes audio to text**
-- System compares transcribed text with original script
+- AI transcribes audio and compares with original text
 - System calculates accuracy, fluency, and overall score
-- Student receives targeted feedback comments
-- **Transcript comparison is displayed for review**
+- Student receives 3 targeted feedback comments
 
 ### 4. Progress Tracking
-- All sessions are saved with scores, feedback, and transcripts
+- All sessions are saved with scores and feedback
 - Dashboard shows statistics and recent sessions
 - History page displays all practice sessions
 - Progress charts show improvement over time
@@ -123,65 +167,95 @@
 - System checks for missed sessions daily
 - Email reminders sent to students who haven't practiced
 
-## 🔧 OpenAI Whisper Integration
-
-### Features
-- **Real-time Audio Transcription**: Converts recorded speech to text using OpenAI's Whisper API
-- **Multi-language Support**: Supports English, French, and Swahili transcription
-- **Confidence Scoring**: Provides confidence levels for transcription accuracy
-- **Error Handling**: Graceful fallback when API is unavailable
-
-### Setup
-1. Get an OpenAI API key from [OpenAI Platform](https://platform.openai.com/)
-2. Add the key to your `.env` file as `OPENAI_API_KEY`
-3. The system will automatically initialize the Whisper integration
-
-### Usage
-- Record audio during practice sessions
-- Audio is automatically sent to Whisper API for transcription
-- Transcribed text is compared with the original script
-- Results include both the original script and your transcribed speech
-
 ## 🚀 Deployment
 
 ### Backend (Render)
 1. Connect your GitHub repository
 2. Set build command: `cd server && pnpm install && pnpm run build`
 3. Set start command: `cd server && pnpm start`
-4. Add environment variables in Render dashboard
+4. Add environment variables:
+   - `MONGO_URI`
+   - `JWT_SECRET`
+   - `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_USER`, `EMAIL_PASS`
 
 ### Frontend (Vercel)
 1. Connect your GitHub repository
-2. Set build command: `cd client && pnpm install && pnpm run build`
-3. Set output directory: `client/dist`
-4. Add environment variables in Vercel dashboard
+2. Set root directory to `client`
+3. Vercel will auto-detect Vite configuration
+4. Add environment variable:
+   - `VITE_API_URL` (your backend URL)
 
-## 📁 Project Structure
+## 🔧 Development
 
+### Available Scripts
+
+```bash
+# Root level
+pnpm dev              # Start both frontend and backend
+pnpm build            # Build both applications
+pnpm install:all      # Install all dependencies
+
+# Backend only
+pnpm --filter server dev     # Start backend in development
+pnpm --filter server build   # Build backend
+pnpm --filter server start   # Start production backend
+
+# Frontend only
+pnpm --filter client dev     # Start frontend in development
+pnpm --filter client build   # Build frontend
+pnpm --filter client preview # Preview production build
 ```
-VocaFluence/
-├── client/                 # Frontend React app
-│   ├── src/
-│   │   ├── components/     # React components
-│   │   ├── pages/         # Page components
-│   │   ├── services/      # API services
-│   │   ├── contexts/      # React contexts
-│   │   └── types/         # TypeScript types
-│   ├── public/             # Static assets
-│   └── package.json
-├── server/                 # Backend Node.js app
-│   ├── src/
-│   │   ├── controllers/    # Route controllers
-│   │   ├── middleware/     # Express middleware
-│   │   ├── models/         # MongoDB models
-│   │   ├── routes/         # API routes
-│   │   ├── services/       # Business logic (including AI service)
-│   │   └── index.ts        # Server entry point
-│   ├── uploads/            # File uploads
-│   └── package.json
-├── package.json            # Root package.json
-└── README.md
-```
+
+### Database Models
+
+**User**
+- email, password, role (student/admin)
+- preferredLanguage, schedule settings
+- createdAt, updatedAt
+
+**Script**
+- title, textContent, language
+- referenceAudioURL, difficulty, tags
+- uploadedBy, isActive
+
+**PracticeSession**
+- userId, scriptId, userAudioURL
+- aiTranscript, score, feedbackComments
+- accuracy, fluency, duration
+- timestamp
+
+## 🎨 UI/UX Features
+
+- **Responsive Design**: Works on desktop, tablet, and mobile
+- **Modern UI**: Clean, intuitive interface with Tailwind CSS
+- **Real-time Feedback**: Instant scoring and feedback display
+- **Progress Visualization**: Charts and statistics for motivation
+- **Accessibility**: Keyboard navigation and screen reader support
+
+## 🔒 Security Features
+
+- **JWT Authentication**: Secure token-based authentication
+- **Password Hashing**: bcrypt for secure password storage
+- **Input Validation**: Server-side validation for all inputs
+- **Rate Limiting**: API rate limiting to prevent abuse
+- **CORS Configuration**: Proper cross-origin resource sharing
+- **Helmet**: Security headers for Express
+
+## 🚧 MVP Limitations
+
+- **AI Transcription**: Currently simulated (mock data)
+- **Audio Processing**: Basic file upload and storage
+- **Email Notifications**: Requires SMTP configuration
+- **Real-time Features**: No WebSocket implementation yet
+
+## 🔮 Future Enhancements
+
+- **Real AI Integration**: OpenAI Whisper for transcription
+- **Advanced Analytics**: Detailed progress insights
+- **Gamification**: Badges, streaks, achievements
+- **Mobile App**: React Native or PWA
+- **Real-time Features**: Live practice sessions
+- **Social Features**: Practice groups and challenges
 
 ## 🤝 Contributing
 
@@ -193,4 +267,12 @@ VocaFluence/
 
 ## 📄 License
 
-This project is licensed under the MIT License. 
+This project is licensed under the MIT License.
+
+## 🆘 Support
+
+For support, please open an issue in the GitHub repository or contact the development team.
+
+---
+
+**VocaFluence** - Empowering language learners through AI-driven practice and feedback! 🎯 
