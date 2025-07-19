@@ -1,4 +1,4 @@
-import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import {
     Home,
@@ -53,9 +53,9 @@ export const Layout: React.FC = () => {
                         {navigation.map((item) => {
                             const isActive = location.pathname === item.href
                             return (
-                                <a
+                                <Link
                                     key={item.name}
-                                    href={item.href}
+                                    to={item.href}
                                     className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isActive
                                         ? 'bg-primary-100 text-primary-700'
                                         : 'text-gray-700 hover:bg-gray-100'
@@ -63,7 +63,7 @@ export const Layout: React.FC = () => {
                                 >
                                     <item.icon className="mr-3 h-5 w-5" />
                                     {item.name}
-                                </a>
+                                </Link>
                             )
                         })}
 
@@ -78,9 +78,9 @@ export const Layout: React.FC = () => {
                                 {adminNavigation.map((item) => {
                                     const isActive = location.pathname === item.href
                                     return (
-                                        <a
+                                        <Link
                                             key={item.name}
-                                            href={item.href}
+                                            to={item.href}
                                             className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isActive
                                                 ? 'bg-primary-100 text-primary-700'
                                                 : 'text-gray-700 hover:bg-gray-100'
@@ -88,7 +88,7 @@ export const Layout: React.FC = () => {
                                         >
                                             <item.icon className="mr-3 h-5 w-5" />
                                             {item.name}
-                                        </a>
+                                        </Link>
                                     )
                                 })}
                             </>
