@@ -1,10 +1,29 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import { body, validationResult } from 'express-validator';
+import multer from 'multer';
 import { authMiddleware } from '../middleware/auth';
 import { PracticeSession } from '../models/PracticeSession';
 import { Script } from '../models/Script';
+import AIService from '../services/aiService';
 
 const router: Router = express.Router();
+
+// Configure multer for audio file uploads
+const storage = multer.memoryStorage();
+const upload = multer({
+    storage: storage,
+    limits: {
+        fileSize: 25 * 1024 * 1024, // 25MB limit for audio files
+    },
+    fileFilter: (req, file, cb) => {
+        // Accept audio files
+        if (file.mimetype.startsWith('audio/')) {
+            cb(null, true);
+        } else {
+            cb(new Error('Only audio files are allowed'));
+        }
+    }
+});
 
 // Start practice session
 router.post('/start', [
@@ -54,7 +73,131 @@ router.post('/start', [
     }
 });
 
-// Submit practice results
+// Submit practice results with audio transcription
+router.post('/submit', [
+    authMiddleware,
+    upload.single('audio'),
+    body('scriptId').isMongoId(),
+    body('duration').isFloat({ min: 0 })
+], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        // Debug: Log the entire request
+        console.log('=== PRACTICE SUBMISSION DEBUG ===');
+        console.log('Headers:', req.headers);
+        console.log('Body:', req.body);
+        console.log('Files:', req.files);
+        console.log('File:', req.file);
+        console.log('Content-Type:', req.headers['content-type']);
+        console.log('================================');
+
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            console.error('Validation errors:', errors.array());
+            res.status(400).json({
+                message: 'Validation failed',
+                errors: errors.array()
+            });
+            return;
+        }
+
+        const { scriptId, duration } = req.body;
+        const userId = (req as any).user._id;
+        const audioFile = req.file;
+
+        console.log('Practice submission received:', {
+            scriptId,
+            duration,
+            userId,
+            hasAudioFile: !!audioFile,
+            audioFileSize: audioFile?.size,
+            audioFileName: audioFile?.originalname,
+            audioFileMimeType: audioFile?.mimetype
+        });
+
+        if (!audioFile) {
+            console.error('No audio file received. Request details:', {
+                contentType: req.headers['content-type'],
+                bodyKeys: Object.keys(req.body),
+                hasFiles: !!req.files,
+                hasFile: !!req.file
+            });
+            res.status(400).json({ message: 'Audio file is required.' });
+            return;
+        }
+
+        // Verify script exists
+        const script = await Script.findById(scriptId);
+        if (!script) {
+            res.status(404).json({ message: 'Script not found.' });
+            return;
+        }
+
+        try {
+            console.log('Starting transcription for script:', script.title);
+
+            // Transcribe audio using Whisper API
+            const transcriptionResult = await AIService.transcribeAudio(audioFile.buffer, script.language);
+
+            console.log('Transcription completed:', transcriptionResult.transcript);
+
+            // Generate AI feedback
+            const feedbackResult = await AIService.generateFeedback(
+                script.textContent,
+                transcriptionResult.transcript,
+                duration
+            );
+
+            console.log('Feedback generated:', {
+                score: feedbackResult.score,
+                accuracy: feedbackResult.accuracy,
+                fluency: feedbackResult.fluency
+            });
+
+            // Create practice session with results
+            const session = new PracticeSession({
+                userId,
+                scriptId,
+                score: feedbackResult.score,
+                accuracy: feedbackResult.accuracy,
+                fluency: feedbackResult.fluency,
+                duration: duration,
+                wordsPerMinute: feedbackResult.wordsPerMinute,
+                feedback: feedbackResult.feedbackComments.join(' '),
+                audioUrl: '', // You can store audio URL if needed
+                transcript: transcriptionResult.transcript // Store the transcript
+            });
+
+            await session.save();
+            console.log('Practice session saved successfully');
+
+            res.json({
+                message: 'Practice session completed successfully.',
+                session: {
+                    id: session._id,
+                    score: session.score,
+                    accuracy: session.accuracy,
+                    fluency: session.fluency,
+                    duration: session.duration,
+                    wordsPerMinute: session.wordsPerMinute,
+                    feedback: session.feedback,
+                    transcript: session.transcript,
+                    originalScript: script.textContent
+                }
+            });
+        } catch (transcriptionError) {
+            console.error('Transcription error:', transcriptionError);
+            res.status(500).json({
+                message: 'Failed to process audio. Please try again.',
+                error: transcriptionError instanceof Error ? transcriptionError.message : 'Unknown error'
+            });
+        }
+    } catch (error) {
+        console.error('Practice submission error:', error);
+        next(error);
+    }
+});
+
+// Submit practice results (legacy endpoint for backward compatibility)
 router.put('/:sessionId/submit', [
     authMiddleware,
     body('score').isFloat({ min: 0, max: 100 }),

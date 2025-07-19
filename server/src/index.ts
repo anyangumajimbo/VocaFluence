@@ -19,6 +19,7 @@ import { authMiddleware } from './middleware/auth';
 
 // Import services
 import { initializeReminderService } from './services/reminderService';
+import AIService from './services/aiService';
 
 // Load environment variables
 dotenv.config();
@@ -86,13 +87,25 @@ const connectDB = async () => {
     }
 };
 
+// Initialize AI Service
+const initializeAIService = () => {
+    try {
+        AIService.initialize();
+        console.log('✅ AI Service initialized successfully');
+    } catch (error) {
+        console.error('❌ AI Service initialization error:', error);
+        console.log('⚠️  Whisper API will not be available. Please set OPENAI_API_KEY in your environment variables.');
+    }
+};
+
 // Start server
 const startServer = async () => {
     try {
         await connectDB();
 
-        // Initialize reminder service
+        // Initialize services
         initializeReminderService();
+        initializeAIService();
 
         app.listen(PORT, () => {
             console.log(`🚀 Server running on port ${PORT}`);

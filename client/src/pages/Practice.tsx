@@ -25,14 +25,15 @@ interface Script {
 }
 
 interface PracticeResult {
-    id: string
-    score: number
-    accuracy: number
-    fluency: number
-    feedbackComments: string[]
-    transcript: string
-    duration: number
-    wordsPerMinute?: number
+    id: string;
+    score: number;
+    accuracy: number;
+    fluency: number;
+    duration: number;
+    wordsPerMinute?: number;
+    feedback: string;
+    transcript?: string;
+    originalScript?: string;
 }
 
 export const Practice: React.FC = () => {
@@ -94,7 +95,11 @@ export const Practice: React.FC = () => {
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            const mediaRecorder = new MediaRecorder(stream)
+            
+            // Use MP3 format which is well-supported by OpenAI Whisper
+            const mediaRecorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm;codecs=opus'
+            })
             mediaRecorderRef.current = mediaRecorder
             audioChunksRef.current = []
 
@@ -103,7 +108,8 @@ export const Practice: React.FC = () => {
             }
 
             mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/wav' })
+                // Create blob with WebM format (OpenAI supports webm)
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
                 setAudioBlob(audioBlob)
                 setAudioURL(URL.createObjectURL(audioBlob))
                 stream.getTracks().forEach(track => track.stop())
@@ -152,7 +158,19 @@ export const Practice: React.FC = () => {
             const formData = new FormData()
             formData.append('scriptId', selectedScript._id)
             formData.append('duration', recordingTime.toString())
-            formData.append('audio', audioBlob, 'recording.wav')
+            formData.append('audio', audioBlob, 'recording.webm')
+
+            // Debug: Log what we're sending
+            console.log('=== FRONTEND DEBUG ===')
+            console.log('Selected script:', selectedScript)
+            console.log('Audio blob size:', audioBlob.size)
+            console.log('Audio blob type:', audioBlob.type)
+            console.log('Duration:', recordingTime)
+            console.log('FormData entries:')
+            for (let [key, value] of formData.entries()) {
+                console.log(`${key}:`, value)
+            }
+            console.log('========================')
 
             const response = await practiceAPI.submit(formData)
             setPracticeResult(response.data.session)
@@ -338,61 +356,84 @@ export const Practice: React.FC = () => {
                 <div className="card">
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Practice Results</h2>
 
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-                        <div className="text-center">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
                             <div className={`text-3xl font-bold ${getScoreColor(practiceResult.score)}`}>
                                 {practiceResult.score}%
                             </div>
-                            <p className="text-sm text-gray-500">Overall Score</p>
+                            <div className="text-sm text-gray-600">Overall Score</div>
                         </div>
 
-                        <div className="text-center">
-                            <div className="text-3xl font-bold text-primary-600">
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-blue-600">
                                 {practiceResult.accuracy}%
                             </div>
-                            <p className="text-sm text-gray-500">Accuracy</p>
+                            <div className="text-sm text-gray-600">Accuracy</div>
                         </div>
 
-                        <div className="text-center">
-                            <div className="text-3xl font-bold text-success-600">
+                        <div className="text-center p-4 bg-gray-50 rounded-lg">
+                            <div className="text-2xl font-bold text-green-600">
                                 {practiceResult.fluency}%
                             </div>
-                            <p className="text-sm text-gray-500">Fluency</p>
+                            <div className="text-sm text-gray-600">Fluency</div>
                         </div>
                     </div>
 
-                    {/* Feedback Comments */}
-                    <div className="space-y-3">
-                        <h3 className="font-medium text-gray-900">AI Feedback</h3>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                            {practiceResult.feedbackComments.map((comment, index) => (
-                                <div key={index} className="bg-gray-50 p-3 rounded-lg">
-                                    <p className="text-sm text-gray-700">{comment}</p>
+                    {/* Transcript Comparison */}
+                    {practiceResult.transcript && practiceResult.originalScript && (
+                        <div className="space-y-4 mb-6">
+                            <div>
+                                <h3 className="font-medium text-gray-900 mb-2">Original Script</h3>
+                                <div className="bg-blue-50 p-3 rounded-lg text-sm">
+                                    {practiceResult.originalScript}
                                 </div>
+                            </div>
+
+                            <div>
+                                <h3 className="font-medium text-gray-900 mb-2">Your Speech (Transcribed)</h3>
+                                <div className="bg-green-50 p-3 rounded-lg text-sm">
+                                    {practiceResult.transcript}
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Additional Stats */}
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                        <div className="flex items-center space-x-2">
+                            <Clock className="h-5 w-5 text-gray-400" />
+                            <span className="text-sm text-gray-600">
+                                Duration: {formatTime(practiceResult.duration)}
+                            </span>
+                        </div>
+
+                        {practiceResult.wordsPerMinute && (
+                            <div className="flex items-center space-x-2">
+                                <Target className="h-5 w-5 text-gray-400" />
+                                <span className="text-sm text-gray-600">
+                                    {practiceResult.wordsPerMinute} WPM
+                                </span>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Feedback */}
+                    <div className="mb-6">
+                        <h3 className="font-medium text-gray-900 mb-2">Feedback</h3>
+                        <div className="space-y-2">
+                            {practiceResult.feedback.split('. ').map((comment, index) => (
+                                comment.trim() && (
+                                    <div key={index} className="flex items-start space-x-2">
+                                        <CheckCircle className="h-4 w-4 text-green-500 mt-0.5 flex-shrink-0" />
+                                        <span className="text-sm text-gray-700">{comment.trim()}</span>
+                                    </div>
+                                )
                             ))}
                         </div>
                     </div>
 
-                    {/* Session Details */}
-                    <div className="mt-6 pt-6 border-t border-gray-200">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
-                            <div className="flex items-center">
-                                <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                                <span className="text-gray-600">Duration:</span>
-                                <span className="ml-2 font-medium">{formatTime(practiceResult.duration)}</span>
-                            </div>
-
-                            {practiceResult.wordsPerMinute && (
-                                <div className="flex items-center">
-                                    <Target className="h-4 w-4 text-gray-400 mr-2" />
-                                    <span className="text-gray-600">Words per minute:</span>
-                                    <span className="ml-2 font-medium">{practiceResult.wordsPerMinute}</span>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-
-                    <div className="mt-6 flex space-x-3">
+                    {/* Action Buttons */}
+                    <div className="flex space-x-3">
                         <button
                             onClick={() => {
                                 setPracticeResult(null)

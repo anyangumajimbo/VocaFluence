@@ -10,11 +10,12 @@ export interface IPracticeSession extends Document {
     wordsPerMinute?: number;
     audioUrl?: string;
     feedback?: string;
+    transcript?: string; // Store the transcribed text
     createdAt: Date;
     updatedAt: Date;
 }
 
-const PracticeSessionSchema = new Schema<IPracticeSession>({
+const PracticeSessionSchema = new Schema({
     userId: {
         type: Schema.Types.ObjectId,
         ref: 'User',
@@ -56,6 +57,9 @@ const PracticeSessionSchema = new Schema<IPracticeSession>({
         type: String
     },
     feedback: {
+        type: String
+    },
+    transcript: {
         type: String
     }
 }, {

@@ -80,18 +80,19 @@ export const AdminScripts: React.FC = () => {
 
     const onSubmit = async (data: ScriptForm) => {
         try {
-            const formData = new FormData();
-            formData.append('title', data.title);
-            formData.append('textContent', data.textContent);
-            formData.append('language', data.language);
-            formData.append('difficulty', data.difficulty);
-            formData.append('tags', data.tags);
+            const scriptData = {
+                title: data.title,
+                textContent: data.textContent,
+                language: data.language,
+                difficulty: data.difficulty,
+                tags: data.tags
+            };
 
             if (editingScript) {
-                await scriptsAPI.update(editingScript._id, Object.fromEntries(formData.entries()));
+                await scriptsAPI.update(editingScript._id, scriptData);
                 toast.success('Script updated successfully');
             } else {
-                await scriptsAPI.create(formData);
+                await scriptsAPI.create(scriptData);
                 toast.success('Script created successfully');
             }
 

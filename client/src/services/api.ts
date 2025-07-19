@@ -4,18 +4,22 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export const api = axios.create({
     baseURL: API_URL,
-    headers: {
-        'Content-Type': 'application/json',
-    },
+    // Remove default Content-Type to let axios set it automatically for FormData
 })
 
-// Request interceptor to add auth token
+// Request interceptor to add auth token and handle content type
 api.interceptors.request.use(
     (config) => {
         const token = localStorage.getItem('token')
         if (token) {
             config.headers.Authorization = `Bearer ${token}`
         }
+
+        // Set Content-Type for JSON requests, let axios handle FormData automatically
+        if (!(config.data instanceof FormData)) {
+            config.headers['Content-Type'] = 'application/json'
+        }
+
         return config
     },
     (error) => {
@@ -53,7 +57,7 @@ export const scriptsAPI = {
     getById: (id: string) => api.get(`/scripts/${id}`),
     getByLanguage: (language: string, params?: { difficulty?: string }) =>
         api.get(`/scripts/language/${language}`, { params }),
-    create: (data: FormData) => api.post('/scripts', data),
+    create: (data: any) => api.post('/scripts', data),
     update: (id: string, data: any) => api.put(`/scripts/${id}`, data),
     delete: (id: string) => api.delete(`/scripts/${id}`),
 }

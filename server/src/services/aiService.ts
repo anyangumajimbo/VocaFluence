@@ -1,5 +1,6 @@
 // AI Service for VocaFluence
 // This service handles voice-to-text conversion and AI feedback generation
+import OpenAI from 'openai';
 
 export interface AITranscriptResult {
     transcript: string;
@@ -15,35 +16,77 @@ export interface AIFeedbackResult {
 }
 
 export class AIService {
-    // Mock Whisper API for voice-to-text conversion
-    static async transcribeAudio(audioBuffer: Buffer): Promise<AITranscriptResult> {
-        // In a real implementation, this would call OpenAI's Whisper API
-        // For MVP, we'll simulate the transcription with some randomness
+    private static openai: OpenAI;
 
+    // Initialize OpenAI client
+    static initialize() {
+        const apiKey = process.env.OPENAI_API_KEY;
+        if (!apiKey) {
+            throw new Error('OPENAI_API_KEY environment variable is required');
+        }
+        this.openai = new OpenAI({
+            apiKey: apiKey
+        });
+    }
+
+    // Real Whisper API for voice-to-text conversion
+    static async transcribeAudio(audioBuffer: Buffer, language?: string): Promise<AITranscriptResult> {
         try {
-            // Simulate API call delay
-            await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 2000));
+            if (!this.openai) {
+                this.initialize();
+            }
 
-            // Mock transcription - in reality, this would be the actual transcript
-            const mockTranscripts = [
-                "Hello, how are you today?",
-                "The weather is beautiful outside.",
-                "I love learning new languages.",
-                "Practice makes perfect.",
-                "Thank you for your time."
-            ];
+            // Determine language code for Whisper
+            const languageCode = this.getLanguageCode(language || 'english');
 
-            const transcript = mockTranscripts[Math.floor(Math.random() * mockTranscripts.length)];
-            const confidence = 0.7 + Math.random() * 0.3; // 70-100% confidence
+            // Create a proper File object for OpenAI
+            const { File } = require('buffer');
+            const audioFile = new File([audioBuffer], 'audio.webm', { type: 'audio/webm' });
+
+            // Call OpenAI Whisper API
+            const transcription = await this.openai.audio.transcriptions.create({
+                file: audioFile,
+                model: 'whisper-1',
+                response_format: 'verbose_json',
+                language: languageCode
+            });
 
             return {
-                transcript,
-                confidence
+                transcript: transcription.text,
+                confidence: transcription.verbose_json?.segments?.[0]?.avg_logprob || 0.8
             };
         } catch (error) {
-            console.error('Transcription error:', error);
-            throw new Error('Failed to transcribe audio');
+            console.error('Whisper API error:', error);
+
+            // Provide more specific error messages
+            if (error instanceof Error) {
+                if (error.message.includes('401')) {
+                    throw new Error('Invalid OpenAI API key. Please check your configuration.');
+                } else if (error.message.includes('429')) {
+                    throw new Error('OpenAI API rate limit exceeded. Please try again later.');
+                } else if (error.message.includes('413')) {
+                    throw new Error('Audio file too large. Please record a shorter audio clip.');
+                } else if (error.message.includes('multipart form')) {
+                    throw new Error('Audio format issue. Please try a different audio format.');
+                }
+            }
+
+            throw new Error('Failed to transcribe audio using Whisper API. Please try again.');
         }
+    }
+
+    // Helper method to convert language names to Whisper language codes
+    private static getLanguageCode(language: string): string {
+        const languageMap: { [key: string]: string } = {
+            'english': 'en',
+            'french': 'fr',
+            'swahili': 'sw',
+            'en': 'en',
+            'fr': 'fr',
+            'sw': 'sw'
+        };
+
+        return languageMap[language.toLowerCase()] || 'en';
     }
 
     // AI feedback generation based on script comparison
