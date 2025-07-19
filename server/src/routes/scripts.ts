@@ -35,32 +35,16 @@ const upload = multer({
 // Get all scripts
 router.get('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { language, difficulty, page = 1, limit = 20 } = req.query;
-        const filter: any = { isActive: true };
+        const { language, difficulty, category } = req.query;
+        const filter: any = {};
 
         if (language) filter.language = language;
         if (difficulty) filter.difficulty = difficulty;
+        if (category) filter.category = category;
 
-        const skip = (parseInt(page as string) - 1) * parseInt(limit as string);
+        const scripts = await Script.find(filter).sort({ createdAt: -1 });
 
-        const scripts = await Script.find(filter)
-            .populate('uploadedBy', 'email')
-            .sort({ createdAt: -1 })
-            .skip(skip)
-            .limit(parseInt(limit as string));
-
-        const total = await Script.countDocuments(filter);
-        const pages = Math.ceil(total / parseInt(limit as string));
-
-        res.json({
-            scripts,
-            pagination: {
-                page: parseInt(page as string),
-                pages,
-                total,
-                limit: parseInt(limit as string)
-            }
-        });
+        res.json({ scripts });
     } catch (error) {
         next(error);
     }
@@ -70,7 +54,7 @@ router.get('/', async (req: Request, res: Response, next: NextFunction): Promise
 router.get('/:id', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { id } = req.params;
-        const script = await Script.findById(id).populate('uploadedBy', 'email');
+        const script = await Script.findById(id);
 
         if (!script) {
             res.status(404).json({ message: 'Script not found.' });
@@ -87,11 +71,13 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction): Prom
 router.post('/', [
     authMiddleware,
     adminMiddleware,
-    body('title').trim().notEmpty().withMessage('Title is required'),
-    body('textContent').trim().notEmpty().withMessage('Script content is required'),
-    body('language').isIn(['english', 'french', 'swahili']).withMessage('Invalid language'),
-    body('difficulty').isIn(['beginner', 'intermediate', 'advanced']).withMessage('Invalid difficulty'),
-    body('tags').optional().isString()
+    body('title').trim().notEmpty(),
+    body('content').trim().notEmpty(),
+    body('language').isIn(['english', 'french', 'swahili']),
+    body('difficulty').isIn(['beginner', 'intermediate', 'advanced']),
+    body('category').trim().notEmpty(),
+    body('description').optional().isString(),
+    body('tags').optional().isArray()
 ], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const errors = validationResult(req);
@@ -102,21 +88,22 @@ router.post('/', [
 
         const {
             title,
-            textContent,
+            content,
             language,
             difficulty,
+            category,
+            description,
             tags
         } = req.body;
 
-        const userId = (req as any).user._id;
-
         const script = new Script({
             title,
-            textContent,
+            content,
             language,
             difficulty,
-            tags: tags ? tags.split(',').map((tag: string) => tag.trim()) : [],
-            uploadedBy: userId
+            category,
+            description,
+            tags: tags || []
         });
 
         await script.save();
@@ -135,10 +122,12 @@ router.put('/:id', [
     authMiddleware,
     adminMiddleware,
     body('title').optional().trim().notEmpty(),
-    body('textContent').optional().trim().notEmpty(),
+    body('content').optional().trim().notEmpty(),
     body('language').optional().isIn(['english', 'french', 'swahili']),
     body('difficulty').optional().isIn(['beginner', 'intermediate', 'advanced']),
-    body('tags').optional().isString()
+    body('category').optional().trim().notEmpty(),
+    body('description').optional().isString(),
+    body('tags').optional().isArray()
 ], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const errors = validationResult(req);
@@ -148,12 +137,7 @@ router.put('/:id', [
         }
 
         const { id } = req.params;
-        const updateData: any = { ...req.body };
-
-        // Handle tags conversion
-        if (updateData.tags && typeof updateData.tags === 'string') {
-            updateData.tags = updateData.tags.split(',').map((tag: string) => tag.trim());
-        }
+        const updateData = req.body;
 
         const script = await Script.findByIdAndUpdate(
             id,
@@ -207,7 +191,7 @@ router.post('/:id/audio', authMiddleware, adminMiddleware, upload.single('audio'
         const script = await Script.findByIdAndUpdate(
             id,
             {
-                referenceAudioURL: `/uploads/${audioFile.filename}`
+                audioUrl: `/uploads/${audioFile.filename}`
             },
             { new: true }
         );
