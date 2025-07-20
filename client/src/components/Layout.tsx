@@ -1,5 +1,6 @@
 import { Outlet, useLocation, useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useState } from 'react'
 import {
     Home,
     BookOpen,
@@ -9,13 +10,16 @@ import {
     LogOut,
     BarChart3,
     Users,
-    FileText
+    FileText,
+    Menu,
+    X
 } from 'lucide-react'
 
 export const Layout: React.FC = () => {
     const { user, logout } = useAuth()
     const location = useLocation()
     const navigate = useNavigate()
+    const [sidebarOpen, setSidebarOpen] = useState(false)
 
     const navigation = [
         { name: 'Dashboard', href: '/dashboard', icon: Home },
@@ -37,32 +41,48 @@ export const Layout: React.FC = () => {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 mobile-safe-area">
+            {/* Mobile menu overlay */}
+            {sidebarOpen && (
+                <div
+                    className="fixed inset-0 z-40 bg-gray-600 bg-opacity-75 lg:hidden mobile-tap-highlight"
+                    onClick={() => setSidebarOpen(false)}
+                />
+            )}
+
             {/* Sidebar */}
-            <div className="fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg">
+            <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-300 ease-in-out lg:translate-x-0 ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+                }`}>
                 <div className="flex h-full flex-col">
                     {/* Logo */}
-                    <div className="flex h-16 items-center justify-center border-b border-gray-200">
+                    <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200">
                         <h1 className="text-xl font-bold text-gradient">
                             VocaFluence
                         </h1>
+                        <button
+                            onClick={() => setSidebarOpen(false)}
+                            className="lg:hidden p-2 text-gray-500 hover:text-gray-700 mobile-touch-target"
+                        >
+                            <X className="h-5 w-5" />
+                        </button>
                     </div>
 
                     {/* Navigation */}
-                    <nav className="flex-1 space-y-1 px-4 py-4">
+                    <nav className="flex-1 space-y-1 px-4 py-4 overflow-y-auto">
                         {navigation.map((item) => {
                             const isActive = location.pathname === item.href
                             return (
                                 <Link
                                     key={item.name}
                                     to={item.href}
-                                    className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isActive
+                                    onClick={() => setSidebarOpen(false)}
+                                    className={`group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors mobile-touch-target ${isActive
                                         ? 'bg-primary-100 text-primary-700'
                                         : 'text-gray-700 hover:bg-gray-100'
                                         }`}
                                 >
-                                    <item.icon className="mr-3 h-5 w-5" />
-                                    {item.name}
+                                    <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
+                                    <span className="truncate">{item.name}</span>
                                 </Link>
                             )
                         })}
@@ -81,13 +101,14 @@ export const Layout: React.FC = () => {
                                         <Link
                                             key={item.name}
                                             to={item.href}
-                                            className={`group flex items-center px-3 py-2 text-sm font-medium rounded-lg transition-colors ${isActive
+                                            onClick={() => setSidebarOpen(false)}
+                                            className={`group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors mobile-touch-target ${isActive
                                                 ? 'bg-primary-100 text-primary-700'
                                                 : 'text-gray-700 hover:bg-gray-100'
                                                 }`}
                                         >
-                                            <item.icon className="mr-3 h-5 w-5" />
-                                            {item.name}
+                                            <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
+                                            <span className="truncate">{item.name}</span>
                                         </Link>
                                     )
                                 })}
@@ -98,14 +119,14 @@ export const Layout: React.FC = () => {
                     {/* User Info & Logout */}
                     <div className="border-t border-gray-200 p-4">
                         <div className="flex items-center justify-between">
-                            <div className="flex items-center">
-                                <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
+                            <div className="flex items-center min-w-0">
+                                <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
                                     <span className="text-sm font-medium text-primary-700">
                                         {user?.email.charAt(0).toUpperCase()}
                                     </span>
                                 </div>
-                                <div className="ml-3">
-                                    <p className="text-sm font-medium text-gray-700">
+                                <div className="ml-3 min-w-0 flex-1">
+                                    <p className="text-sm font-medium text-gray-700 truncate">
                                         {user?.email}
                                     </p>
                                     <p className="text-xs text-gray-500 capitalize">
@@ -115,7 +136,7 @@ export const Layout: React.FC = () => {
                             </div>
                             <button
                                 onClick={handleLogout}
-                                className="p-2 text-gray-400 hover:text-gray-600 transition-colors"
+                                className="p-2 text-gray-400 hover:text-gray-600 transition-colors flex-shrink-0 mobile-touch-target"
                                 title="Logout"
                             >
                                 <LogOut className="h-5 w-5" />
@@ -126,9 +147,38 @@ export const Layout: React.FC = () => {
             </div>
 
             {/* Main Content */}
-            <div className="pl-64">
-                <main className="py-6">
-                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            <div className="lg:pl-64">
+                {/* Mobile header */}
+                <div className="lg:hidden bg-white shadow-sm border-b border-gray-200 mobile-safe-area">
+                    <div className="flex items-center justify-between px-4 py-3 mobile-padding">
+                        <button
+                            onClick={() => setSidebarOpen(true)}
+                            className="p-2 text-gray-500 hover:text-gray-700 mobile-touch-target"
+                        >
+                            <Menu className="h-6 w-6" />
+                        </button>
+                        <h1 className="text-lg font-bold text-gradient">
+                            VocaFluence
+                        </h1>
+                        <div className="flex items-center space-x-2">
+                            <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
+                                <span className="text-sm font-medium text-primary-700">
+                                    {user?.email.charAt(0).toUpperCase()}
+                                </span>
+                            </div>
+                            <button
+                                onClick={handleLogout}
+                                className="p-2 text-gray-400 hover:text-gray-600 transition-colors mobile-touch-target"
+                                title="Logout"
+                            >
+                                <LogOut className="h-5 w-5" />
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <main className="py-4 lg:py-6">
+                    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mobile-padding">
                         <Outlet />
                     </div>
                 </main>
