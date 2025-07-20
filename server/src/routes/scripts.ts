@@ -72,11 +72,9 @@ router.post('/', [
     authMiddleware,
     adminMiddleware,
     body('title').trim().notEmpty(),
-    body('content').trim().notEmpty(),
+    body('textContent').trim().notEmpty(),
     body('language').isIn(['english', 'french', 'swahili']),
     body('difficulty').isIn(['beginner', 'intermediate', 'advanced']),
-    body('category').trim().notEmpty(),
-    body('description').optional().isString(),
     body('tags').optional().isArray()
 ], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -88,22 +86,19 @@ router.post('/', [
 
         const {
             title,
-            content,
+            textContent,
             language,
             difficulty,
-            category,
-            description,
             tags
         } = req.body;
 
         const script = new Script({
             title,
-            content,
+            textContent,
             language,
             difficulty,
-            category,
-            description,
-            tags: tags || []
+            tags: tags || [],
+            uploadedBy: (req as any).user._id
         });
 
         await script.save();

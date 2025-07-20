@@ -1,6 +1,6 @@
 import axios from 'axios'
 
-const API_URL = import.meta.env.VITE_API_URL || 'https://vocafluence.onrender.com/api'
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api'
 
 export const api = axios.create({
     baseURL: API_URL,
@@ -76,8 +76,8 @@ export const usersAPI = {
     getAll: (params?: { page?: number; limit?: number; role?: string; language?: string }) =>
         api.get('/users', { params }),
     getById: (id: string) => api.get(`/users/${id}`),
-    getDashboard: () => api.get('/users/dashboard'),
-    getProgress: () => api.get('/users/progress/language'),
+    getDashboard: () => api.get('/users/stats/overview'),
+    getProgress: () => api.get('/users/stats/languages'),
     getStreak: () => api.get('/users/streak'),
     updateStatus: (id: string, data: { isActive: boolean }) =>
         api.put(`/users/${id}/status`, data),

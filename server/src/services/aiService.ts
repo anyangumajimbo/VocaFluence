@@ -43,17 +43,22 @@ export class AIService {
             const { File } = require('buffer');
             const audioFile = new File([audioBuffer], 'audio.webm', { type: 'audio/webm' });
 
-            // Call OpenAI Whisper API
-            const transcription = await this.openai.audio.transcriptions.create({
-                file: audioFile,
-                model: 'whisper-1',
-                response_format: 'verbose_json',
-                language: languageCode
-            });
+                        // Call OpenAI Whisper API with timeout
+            const transcription = await Promise.race([
+                this.openai.audio.transcriptions.create({
+                    file: audioFile,
+                    model: 'whisper-1',
+                    response_format: 'verbose_json',
+                    language: languageCode
+                }),
+                new Promise<never>((_, reject) => 
+                    setTimeout(() => reject(new Error('API request timeout')), 30000)
+                )
+            ]) as any;
 
             return {
                 transcript: transcription.text,
-                confidence: 0.8 // Default confidence since verbose_json structure may vary
+                confidence: transcription.verbose_json?.segments?.[0]?.avg_logprob || 0.8
             };
         } catch (error) {
             console.error('Whisper API error:', error);
@@ -68,6 +73,8 @@ export class AIService {
                     throw new Error('Audio file too large. Please record a shorter audio clip.');
                 } else if (error.message.includes('multipart form')) {
                     throw new Error('Audio format issue. Please try a different audio format.');
+                } else if (error.message.includes('timeout')) {
+                    throw new Error('Audio processing is taking too long. Please try a shorter recording.');
                 }
             }
 

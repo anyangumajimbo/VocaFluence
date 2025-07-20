@@ -15,9 +15,12 @@ import toast from 'react-hot-toast'
 interface Script {
     _id: string
     title: string
-    textContent: string
+    textContent?: string
+    content?: string
     language: string
     difficulty: string
+    category?: string
+    description?: string
     tags: string[]
     referenceAudioURL?: string
     createdAt: string
@@ -68,11 +71,23 @@ export const AdminScripts: React.FC = () => {
             if (selectedDifficulty) params.difficulty = selectedDifficulty
 
             const response = await scriptsAPI.getAll(params)
-            setScripts(response.data.scripts)
-            setTotalPages(response.data.pagination.pages)
+
+            // Handle different response formats
+            if (response.data.scripts) {
+                setScripts(response.data.scripts)
+                setTotalPages(response.data.pagination?.pages || 1)
+            } else if (Array.isArray(response.data)) {
+                setScripts(response.data)
+                setTotalPages(1)
+            } else {
+                setScripts([])
+                setTotalPages(1)
+            }
         } catch (error) {
             console.error('Error fetching scripts:', error)
             toast.error('Failed to load scripts')
+            setScripts([])
+            setTotalPages(1)
         } finally {
             setLoading(false)
         }
@@ -85,7 +100,7 @@ export const AdminScripts: React.FC = () => {
                 textContent: data.textContent,
                 language: data.language,
                 difficulty: data.difficulty,
-                tags: data.tags
+                tags: data.tags ? data.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0) : []
             };
 
             if (editingScript) {
@@ -100,16 +115,17 @@ export const AdminScripts: React.FC = () => {
             setShowForm(false);
             setEditingScript(null);
             fetchScripts();
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving script:', error);
-            toast.error('Failed to save script');
+            const errorMessage = error.response?.data?.message || 'Failed to save script';
+            toast.error(errorMessage);
         }
     }
 
     const handleEdit = (script: Script) => {
         setEditingScript(script)
         setValue('title', script.title)
-        setValue('textContent', script.textContent)
+        setValue('textContent', script.textContent || '')
         setValue('language', script.language as any)
         setValue('difficulty', script.difficulty as any)
         setValue('tags', script.tags.join(', '))
@@ -137,7 +153,8 @@ export const AdminScripts: React.FC = () => {
 
     const filteredScripts = scripts.filter(script =>
         script.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        script.textContent.toLowerCase().includes(searchTerm.toLowerCase())
+        (script.textContent?.toLowerCase().includes(searchTerm.toLowerCase()) || false) ||
+        (script.content?.toLowerCase().includes(searchTerm.toLowerCase()) || false)
     )
 
     const getDifficultyColor = (difficulty: string) => {
