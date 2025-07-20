@@ -12,7 +12,6 @@ import { Profile } from './pages/Profile'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { AdminScripts } from './pages/AdminScripts'
 import { AdminUsers } from './pages/AdminUsers'
-import { NotFound } from './pages/NotFound'
 
 function App() {
     return (
