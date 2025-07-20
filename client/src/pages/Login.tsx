@@ -38,20 +38,20 @@ export const Login: React.FC = () => {
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-primary-50 to-primary-100 p-4 sm:p-6 lg:p-8 mobile-safe-area">
-            <div className="max-w-md w-full space-y-6 sm:space-y-8 mobile-padding">
-                <div>
-                    <h2 className="text-center text-2xl sm:text-3xl font-extrabold text-gray-900 mobile-text">
+            <div className="max-w-md w-full space-y-6 sm:space-y-8 mobile-padding mobile-fade-in">
+                <div className="mobile-space-y">
+                    <h2 className="text-center text-2xl sm:text-3xl font-extrabold text-gray-900 mobile-heading">
                         Welcome to VocaFluence
                     </h2>
-                    <p className="mt-2 text-center text-sm text-gray-600 mobile-text">
+                    <p className="mt-2 text-center text-sm text-gray-600 mobile-body">
                         Sign in to your account to continue practicing
                     </p>
                 </div>
 
-                <form className="mt-6 sm:mt-8 space-y-4 sm:space-y-6" onSubmit={handleSubmit(onSubmit)}>
-                    <div className="space-y-4">
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mobile-text">
+                <form className="mt-6 sm:mt-8 space-y-4 sm:space-y-6 mobile-space-y" onSubmit={handleSubmit(onSubmit)}>
+                    <div className="space-y-4 mobile-space-y">
+                        <div className="mobile-form-group">
+                            <label htmlFor="email" className="block text-sm font-medium text-gray-700 mobile-form-label">
                                 Email address
                             </label>
                             <div className="mt-1 relative">
@@ -73,12 +73,12 @@ export const Login: React.FC = () => {
                                 />
                             </div>
                             {errors.email && (
-                                <p className="mt-1 text-sm text-error-600 mobile-text">{errors.email.message}</p>
+                                <p className="mt-1 text-sm text-error-600 mobile-caption">{errors.email.message}</p>
                             )}
                         </div>
 
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mobile-text">
+                        <div className="mobile-form-group">
+                            <label htmlFor="password" className="block text-sm font-medium text-gray-700 mobile-form-label">
                                 Password
                             </label>
                             <div className="mt-1 relative">
@@ -111,7 +111,7 @@ export const Login: React.FC = () => {
                                 </button>
                             </div>
                             {errors.password && (
-                                <p className="mt-1 text-sm text-error-600 mobile-text">{errors.password.message}</p>
+                                <p className="mt-1 text-sm text-error-600 mobile-caption">{errors.password.message}</p>
                             )}
                         </div>
                     </div>
@@ -120,18 +120,18 @@ export const Login: React.FC = () => {
                         <button
                             type="submit"
                             disabled={isLoading}
-                            className="btn-primary w-full flex justify-center py-3 px-4 text-sm sm:text-base mobile-touch-target"
+                            className="btn-primary w-full flex justify-center py-3 px-4 text-sm sm:text-base mobile-touch-target mobile-btn-lg"
                         >
                             {isLoading ? (
-                                <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                <div className="mobile-loading-spinner"></div>
                             ) : (
                                 'Sign in'
                             )}
                         </button>
                     </div>
 
-                    <div className="text-center space-y-2">
-                        <p className="text-sm text-gray-600 mobile-text">
+                    <div className="text-center space-y-2 mobile-space-y">
+                        <p className="text-sm text-gray-600 mobile-body">
                             Don't have an account?{' '}
                             <Link
                                 to="/register"
@@ -140,7 +140,7 @@ export const Login: React.FC = () => {
                                 Sign up here
                             </Link>
                         </p>
-                        <p className="text-sm text-gray-600 mobile-text">
+                        <p className="text-sm text-gray-600 mobile-body">
                             <Link
                                 to="/forgot-password"
                                 className="font-medium text-primary-600 hover:text-primary-500 mobile-touch-target"

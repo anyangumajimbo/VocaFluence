@@ -22,27 +22,77 @@ function App() {
                 <Route path="/login" element={<Login />} />
                 <Route path="/register" element={<Register />} />
 
+                {/* Root path - redirect to dashboard if authenticated, login if not */}
+                <Route path="/" element={<Navigate to="/dashboard" replace />} />
+
                 {/* Protected routes */}
-                <Route path="/" element={
+                <Route path="/dashboard" element={
                     <ProtectedRoute>
                         <Layout />
                     </ProtectedRoute>
                 }>
-                    <Route index element={<Navigate to="/dashboard" replace />} />
-                    <Route path="dashboard" element={<Dashboard />} />
-                    <Route path="practice" element={<Practice />} />
-                    <Route path="scripts" element={<Scripts />} />
-                    <Route path="history" element={<History />} />
-                    <Route path="profile" element={<Profile />} />
-
-                    {/* Admin routes */}
-                    <Route path="admin" element={<AdminDashboard />} />
-                    <Route path="admin/scripts" element={<AdminScripts />} />
-                    <Route path="admin/users" element={<AdminUsers />} />
+                    <Route index element={<Dashboard />} />
                 </Route>
 
-                {/* Catch all */}
-                <Route path="*" element={<NotFound />} />
+                <Route path="/practice" element={
+                    <ProtectedRoute>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<Practice />} />
+                </Route>
+
+                <Route path="/scripts" element={
+                    <ProtectedRoute>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<Scripts />} />
+                </Route>
+
+                <Route path="/history" element={
+                    <ProtectedRoute>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<History />} />
+                </Route>
+
+                <Route path="/profile" element={
+                    <ProtectedRoute>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<Profile />} />
+                </Route>
+
+                {/* Admin routes */}
+                <Route path="/admin" element={
+                    <ProtectedRoute requireAdmin>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<AdminDashboard />} />
+                </Route>
+
+                <Route path="/admin/scripts" element={
+                    <ProtectedRoute requireAdmin>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<AdminScripts />} />
+                </Route>
+
+                <Route path="/admin/users" element={
+                    <ProtectedRoute requireAdmin>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<AdminUsers />} />
+                </Route>
+
+                {/* Catch all - redirect to login if not authenticated */}
+                <Route path="*" element={<Navigate to="/login" replace />} />
             </Routes>
         </AuthProvider>
     )

@@ -55,8 +55,8 @@ export const Layout: React.FC = () => {
                 }`}>
                 <div className="flex h-full flex-col">
                     {/* Logo */}
-                    <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200">
-                        <h1 className="text-xl font-bold text-gradient">
+                    <div className="flex h-16 items-center justify-between px-4 border-b border-gray-200 mobile-safe-area">
+                        <h1 className="text-xl font-bold text-gradient mobile-heading">
                             VocaFluence
                         </h1>
                         <button
@@ -68,7 +68,7 @@ export const Layout: React.FC = () => {
                     </div>
 
                     {/* Navigation */}
-                    <nav className="flex-1 space-y-1 px-4 py-4 overflow-y-auto">
+                    <nav className="flex-1 space-y-1 px-4 py-4 overflow-y-auto mobile-space-y">
                         {navigation.map((item) => {
                             const isActive = location.pathname === item.href
                             return (
@@ -76,13 +76,13 @@ export const Layout: React.FC = () => {
                                     key={item.name}
                                     to={item.href}
                                     onClick={() => setSidebarOpen(false)}
-                                    className={`group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors mobile-touch-target ${isActive
+                                    className={`group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors mobile-nav-item mobile-touch-target ${isActive
                                         ? 'bg-primary-100 text-primary-700'
                                         : 'text-gray-700 hover:bg-gray-100'
                                         }`}
                                 >
                                     <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                                    <span className="truncate">{item.name}</span>
+                                    <span className="truncate mobile-body">{item.name}</span>
                                 </Link>
                             )
                         })}
@@ -91,7 +91,7 @@ export const Layout: React.FC = () => {
                         {user?.role === 'admin' && (
                             <>
                                 <div className="pt-4 pb-2">
-                                    <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider">
+                                    <h3 className="px-3 text-xs font-semibold text-gray-500 uppercase tracking-wider mobile-caption">
                                         Admin
                                     </h3>
                                 </div>
@@ -102,13 +102,13 @@ export const Layout: React.FC = () => {
                                             key={item.name}
                                             to={item.href}
                                             onClick={() => setSidebarOpen(false)}
-                                            className={`group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors mobile-touch-target ${isActive
+                                            className={`group flex items-center px-3 py-3 text-sm font-medium rounded-lg transition-colors mobile-nav-item mobile-touch-target ${isActive
                                                 ? 'bg-primary-100 text-primary-700'
                                                 : 'text-gray-700 hover:bg-gray-100'
                                                 }`}
                                         >
                                             <item.icon className="mr-3 h-5 w-5 flex-shrink-0" />
-                                            <span className="truncate">{item.name}</span>
+                                            <span className="truncate mobile-body">{item.name}</span>
                                         </Link>
                                     )
                                 })}
@@ -117,19 +117,19 @@ export const Layout: React.FC = () => {
                     </nav>
 
                     {/* User Info & Logout */}
-                    <div className="border-t border-gray-200 p-4">
+                    <div className="border-t border-gray-200 p-4 mobile-safe-area">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center min-w-0">
                                 <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center flex-shrink-0">
-                                    <span className="text-sm font-medium text-primary-700">
+                                    <span className="text-sm font-medium text-primary-700 mobile-caption">
                                         {user?.email.charAt(0).toUpperCase()}
                                     </span>
                                 </div>
                                 <div className="ml-3 min-w-0 flex-1">
-                                    <p className="text-sm font-medium text-gray-700 truncate">
+                                    <p className="text-sm font-medium text-gray-700 truncate mobile-body">
                                         {user?.email}
                                     </p>
-                                    <p className="text-xs text-gray-500 capitalize">
+                                    <p className="text-xs text-gray-500 capitalize mobile-caption">
                                         {user?.role}
                                     </p>
                                 </div>
@@ -157,12 +157,12 @@ export const Layout: React.FC = () => {
                         >
                             <Menu className="h-6 w-6" />
                         </button>
-                        <h1 className="text-lg font-bold text-gradient">
+                        <h1 className="text-lg font-bold text-gradient mobile-heading">
                             VocaFluence
                         </h1>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 mobile-space-x">
                             <div className="h-8 w-8 rounded-full bg-primary-100 flex items-center justify-center">
-                                <span className="text-sm font-medium text-primary-700">
+                                <span className="text-sm font-medium text-primary-700 mobile-caption">
                                     {user?.email.charAt(0).toUpperCase()}
                                 </span>
                             </div>
@@ -179,7 +179,9 @@ export const Layout: React.FC = () => {
 
                 <main className="py-4 lg:py-6">
                     <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 mobile-padding">
-                        <Outlet />
+                        <div className="mobile-fade-in">
+                            <Outlet />
+                        </div>
                     </div>
                 </main>
             </div>
