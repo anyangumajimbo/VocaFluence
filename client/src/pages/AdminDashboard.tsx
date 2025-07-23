@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
     BarChart3,
     FileText,
@@ -21,6 +22,7 @@ interface DashboardStats {
 export const AdminDashboard: React.FC = () => {
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [loading, setLoading] = useState(true)
+    const navigate = useNavigate()
 
     useEffect(() => {
         fetchDashboardStats()
@@ -238,17 +240,26 @@ export const AdminDashboard: React.FC = () => {
                 <h2 className="text-lg font-semibold text-gray-900 mb-4">Quick Actions</h2>
 
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <button className="btn-primary flex items-center justify-center">
+                    <button
+                        onClick={() => navigate('/admin/scripts')}
+                        className="btn-primary flex items-center justify-center hover:bg-primary-700 transition-colors duration-200"
+                    >
                         <FileText className="h-5 w-5 mr-2" />
                         Upload Script
                     </button>
 
-                    <button className="btn-secondary flex items-center justify-center">
+                    <button
+                        onClick={() => navigate('/admin/users')}
+                        className="btn-secondary flex items-center justify-center hover:bg-gray-300 transition-colors duration-200"
+                    >
                         <Users className="h-5 w-5 mr-2" />
                         Manage Users
                     </button>
 
-                    <button className="btn-secondary flex items-center justify-center">
+                    <button
+                        onClick={() => navigate('/admin')}
+                        className="btn-secondary flex items-center justify-center hover:bg-gray-300 transition-colors duration-200"
+                    >
                         <BarChart3 className="h-5 w-5 mr-2" />
                         View Analytics
                     </button>
