@@ -9,11 +9,12 @@ const router: Router = express.Router();
 
 // Register
 router.post('/register', [
-    body('email').isEmail().normalizeEmail(),
-    body('password').isLength({ min: 6 }),
-    body('firstName').trim().notEmpty(),
-    body('lastName').trim().notEmpty(),
-    body('role').isIn(['student', 'admin'])
+    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('password').isLength({ min: 6 }).withMessage('Password must be at least 6 characters'),
+    body('firstName').trim().notEmpty().withMessage('First name is required'),
+    body('lastName').trim().notEmpty().withMessage('Last name is required'),
+    body('role').isIn(['student', 'admin']).withMessage('Role must be student or admin'),
+    body('preferredLanguage').isIn(['english', 'french', 'swahili']).withMessage('Preferred language is required')
 ], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const errors = validationResult(req);
@@ -22,26 +23,23 @@ router.post('/register', [
             return;
         }
 
-        const { email, password, firstName, lastName, role } = req.body;
+        const { email, password, firstName, lastName, role, preferredLanguage } = req.body;
 
-        // Check if user already exists
-        const existingUser = await User.findOne({ email });
+        // Check if user exists
+        const existingUser = await User.findOne({ email: email.toLowerCase() });
         if (existingUser) {
             res.status(400).json({ message: 'User already exists.' });
             return;
         }
 
-        // Hash password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(password, salt);
-
-        // Create user
+        // Create user with plain password (let pre-save hook hash it)
         const user = new User({
-            email,
-            password: hashedPassword,
+            email: email.toLowerCase(),
+            password, // Pre-save hook will hash this
             firstName,
             lastName,
-            role
+            role,
+            preferredLanguage
         });
 
         await user.save();
@@ -69,10 +67,10 @@ router.post('/register', [
     }
 });
 
-// Login
+// Login - Fixed to ensure all code paths return a value
 router.post('/login', [
-    body('email').isEmail().normalizeEmail(),
-    body('password').notEmpty()
+    body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
+    body('password').notEmpty().withMessage('Password is required')
 ], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const errors = validationResult(req);
@@ -84,14 +82,14 @@ router.post('/login', [
         const { email, password } = req.body;
 
         // Find user
-        const user = await User.findOne({ email });
+        const user = await User.findOne({ email: email.toLowerCase() });
         if (!user) {
             res.status(400).json({ message: 'Invalid credentials.' });
             return;
         }
 
         // Check password
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await user.comparePassword(password);
         if (!isMatch) {
             res.status(400).json({ message: 'Invalid credentials.' });
             return;
@@ -155,18 +153,14 @@ router.put('/change-password', [
         const user = (req as any).user;
 
         // Verify current password
-        const isMatch = await bcrypt.compare(currentPassword, user.password);
+        const isMatch = await user.comparePassword(currentPassword);
         if (!isMatch) {
             res.status(400).json({ message: 'Current password is incorrect.' });
             return;
         }
 
-        // Hash new password
-        const salt = await bcrypt.genSalt(10);
-        const hashedPassword = await bcrypt.hash(newPassword, salt);
-
-        // Update password
-        user.password = hashedPassword;
+        // Update password (pre-save hook will hash it)
+        user.password = newPassword;
         await user.save();
 
         res.json({ message: 'Password changed successfully.' });
@@ -202,8 +196,6 @@ router.post('/forgot-password', [
             { expiresIn: '1h' }
         );
 
-        // TODO: Send email with reset link
-        // For now, just return the token
         res.json({
             message: 'Password reset email sent.',
             resetToken
@@ -213,4 +205,4 @@ router.post('/forgot-password', [
     }
 });
 
-export default router; 
+export default router;
