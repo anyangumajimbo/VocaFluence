@@ -4,6 +4,7 @@ import jwt from 'jsonwebtoken';
 import { body, validationResult } from 'express-validator';
 import { User } from '../models/User';
 import { authMiddleware } from '../middleware/auth';
+import logger from '../utils/logger';
 
 const router: Router = express.Router();
 
@@ -15,7 +16,7 @@ router.post('/register', [
     body('lastName').trim().notEmpty().withMessage('Last name is required'),
     body('role').isIn(['student', 'admin']).withMessage('Role must be student or admin'),
     body('preferredLanguage').isIn(['english', 'french', 'swahili']).withMessage('Preferred language is required')
-], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+], async (req: Request, res: Response, next: NextFunction) => {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -71,55 +72,62 @@ router.post('/register', [
 router.post('/login', [
     body('email').isEmail().normalizeEmail().withMessage('Valid email is required'),
     body('password').notEmpty().withMessage('Password is required')
-], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        const errors = validationResult(req);
-        if (!errors.isEmpty()) {
-            res.status(400).json({ errors: errors.array() });
-            return;
-        }
+], async (req: Request, res: Response, next: NextFunction) => {
+    // Production logging for login attempts
+    logger.info('NEW LOGIN ATTEMPT: %O', {
+        body: req.body,
+        headers: req.headers['content-type']
+    });
 
-        const { email, password } = req.body;
-
-        // Find user
-        const user = await User.findOne({ email: email.toLowerCase() });
-        if (!user) {
-            res.status(400).json({ message: 'Invalid credentials.' });
-            return;
-        }
-
-        // Check password
-        const isMatch = await user.comparePassword(password);
-        if (!isMatch) {
-            res.status(400).json({ message: 'Invalid credentials.' });
-            return;
-        }
-
-        // Generate JWT token
-        const token = jwt.sign(
-            { userId: user._id },
-            process.env.JWT_SECRET!,
-            { expiresIn: '24h' }
-        );
-
-        res.json({
-            message: 'Login successful.',
-            token,
-            user: {
-                id: user._id,
-                email: user.email,
-                firstName: user.firstName,
-                lastName: user.lastName,
-                role: user.role
-            }
-        });
-    } catch (error) {
-        next(error);
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        logger.warn('Validation errors: %O', errors.array());
+        return res.status(400).json({ errors: errors.array() });
     }
+
+    const { email, password } = req.body;
+
+    // Find user
+    const user = await User.findOne({ email: email.toLowerCase() });
+    if (!user) {
+        logger.warn('User not found for email: %s', email);
+        res.status(400).json({ message: 'Invalid credentials.' });
+        return;
+    }
+
+    // Log password check (do not log actual password in production)
+    logger.info('Checking password for user: %s', email);
+
+    // Check password
+    const isMatch = await user.comparePassword(password);
+    if (!isMatch) {
+        logger.warn('Password mismatch for user: %s', email);
+        res.status(400).json({ message: 'Invalid credentials.' });
+        return;
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+        { userId: user._id },
+        process.env.JWT_SECRET!,
+        { expiresIn: '24h' }
+    );
+
+    res.json({
+        message: 'Login successful.',
+        token,
+        user: {
+            id: user._id,
+            email: user.email,
+            firstName: user.firstName,
+            lastName: user.lastName,
+            role: user.role
+        }
+    });
 });
 
 // Get current user
-router.get('/me', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+router.get('/me', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
     try {
         const user = (req as any).user;
         res.json({
@@ -141,7 +149,7 @@ router.put('/change-password', [
     authMiddleware,
     body('currentPassword').notEmpty(),
     body('newPassword').isLength({ min: 6 })
-], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+], async (req: Request, res: Response, next: NextFunction) => {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {
@@ -172,7 +180,7 @@ router.put('/change-password', [
 // Forgot password
 router.post('/forgot-password', [
     body('email').isEmail().normalizeEmail()
-], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+], async (req: Request, res: Response, next: NextFunction) => {
     try {
         const errors = validationResult(req);
         if (!errors.isEmpty()) {

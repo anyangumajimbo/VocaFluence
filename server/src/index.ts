@@ -5,6 +5,8 @@ import rateLimit from 'express-rate-limit';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import path from 'path';
+import morgan from 'morgan';
+import logger from './utils/logger';
 
 // Import routes
 import authRoutes from './routes/auth';
@@ -36,7 +38,8 @@ app.use(cors({
     origin: [
         'https://voca-fluence-client.vercel.app',
         'https://vocafluence-client.vercel.app',
-        'http://localhost:5173'
+        'http://localhost:5173',
+        'http://192.168.0.102:5173' // Added your local IP for development
     ],
     credentials: true
 }));
@@ -55,6 +58,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static file serving for uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
+// Use morgan for HTTP request logging
+app.use(morgan('combined', {
+    stream: {
+        write: (message: string) => logger.info(message.trim()),
+    },
+}));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
@@ -84,9 +94,9 @@ const connectDB = async () => {
     }
     try {
         await mongoose.connect(mongoURI);
-        console.log('✅ MongoDB connected successfully');
+        logger.info('✅ MongoDB connected successfully');
     } catch (error) {
-        console.error('❌ MongoDB connection error:', error);
+        logger.error('❌ MongoDB connection error:', error);
         process.exit(1);
     }
 };
@@ -95,10 +105,10 @@ const connectDB = async () => {
 const initializeAIService = () => {
     try {
         AIService.initialize();
-        console.log('✅ AI Service initialized successfully');
+        logger.info('✅ AI Service initialized successfully');
     } catch (error) {
-        console.error('❌ AI Service initialization error:', error);
-        console.log('⚠️  Whisper API will not be available. Please set OPENAI_API_KEY in your environment variables.');
+        logger.error('❌ AI Service initialization error:', error);
+        logger.warn('⚠️  Whisper API will not be available. Please set OPENAI_API_KEY in your environment variables.');
     }
 };
 
@@ -112,11 +122,11 @@ const startServer = async () => {
         initializeAIService();
 
         app.listen(PORT, () => {
-            console.log(`🚀 Server running on port ${PORT}`);
-            console.log(`📊 Environment: ${process.env.NODE_ENV}`);
+            logger.info(`🚀 Server running on port ${PORT}`);
+            logger.info(`📊 Environment: ${process.env.NODE_ENV}`);
         });
     } catch (error) {
-        console.error('❌ Server startup error:', error);
+        logger.error('❌ Server startup error:', error);
         process.exit(1);
     }
 };
