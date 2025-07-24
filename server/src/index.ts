@@ -37,10 +37,13 @@ app.set('trust proxy', 1);
 app.use(helmet());
 app.use(cors({
     origin: [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'http://192.168.0.102:5173',
         'https://voca-fluence-client.vercel.app',
         'https://vocafluence-client.vercel.app',
-        'http://localhost:5173',
-        'http://192.168.0.102:5173' // Added your local IP for development
+        'https://voca-fluence-client-git-main-anyangu-majimbos-projects.vercel.app',
+        'https://voca-fluence-client-lbyzqwlrl-anyangu-majimbos-projects.vercel.app'
     ],
     credentials: true
 }));
