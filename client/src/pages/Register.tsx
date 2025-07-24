@@ -75,6 +75,7 @@ export const Register: React.FC = () => {
                             </label>
                             <div className="mt-1 relative">
                                 <input
+                                    id="firstName"
                                     {...register('firstName', { required: 'First name is required' })}
                                     type="text"
                                     className="input-field"
@@ -92,6 +93,7 @@ export const Register: React.FC = () => {
                             </label>
                             <div className="mt-1 relative">
                                 <input
+                                    id="lastName"
                                     {...register('lastName', { required: 'Last name is required' })}
                                     type="text"
                                     className="input-field"
@@ -105,13 +107,14 @@ export const Register: React.FC = () => {
 
                         <div>
                             <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                Email address
+                                Email
                             </label>
                             <div className="mt-1 relative">
                                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                                     <Mail className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
+                                    id="email"
                                     {...register('email', {
                                         required: 'Email is required',
                                         pattern: {
@@ -138,6 +141,7 @@ export const Register: React.FC = () => {
                                     <Lock className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
+                                    id="password"
                                     {...register('password', {
                                         required: 'Password is required',
                                         minLength: {
@@ -175,6 +179,7 @@ export const Register: React.FC = () => {
                                     <Lock className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <input
+                                    id="confirmPassword"
                                     {...register('confirmPassword', {
                                         required: 'Please confirm your password',
                                         validate: value => value === password || 'Passwords do not match'
@@ -209,6 +214,7 @@ export const Register: React.FC = () => {
                                     <User className="h-5 w-5 text-gray-400" />
                                 </div>
                                 <select
+                                    id="role"
                                     {...register('role')}
                                     className="input-field pl-10"
                                 >
@@ -223,10 +229,9 @@ export const Register: React.FC = () => {
                                 Preferred Language
                             </label>
                             <div className="mt-1 relative">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Globe className="h-5 w-5 text-gray-400" />
-                                </div>
+                                <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
                                 <select
+                                    id="preferredLanguage"
                                     {...register('preferredLanguage')}
                                     className="input-field pl-10"
                                 >

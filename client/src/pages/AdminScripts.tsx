@@ -74,7 +74,7 @@ export const AdminScripts: React.FC = () => {
 
             // Handle different response formats
             if (response.data.scripts) {
-                setScripts(response.data.scripts)
+            setScripts(response.data.scripts)
                 setTotalPages(response.data.pagination?.pages || 1)
             } else if (Array.isArray(response.data)) {
                 setScripts(response.data)
