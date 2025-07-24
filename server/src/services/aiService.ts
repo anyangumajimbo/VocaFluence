@@ -47,9 +47,9 @@ export class AIService {
             const transcription = await Promise.race([
                 this.openai.audio.transcriptions.create({
                     file: audioFile,
-                    model: 'whisper-1',
-                    response_format: 'verbose_json',
-                    language: languageCode
+                model: 'whisper-1',
+                response_format: 'verbose_json',
+                language: languageCode
                 }),
                 new Promise<never>((_, reject) => 
                     setTimeout(() => reject(new Error('API request timeout')), 30000)
