@@ -1,11 +1,9 @@
 import axios from 'axios'
 
-// Force local backend for development
-const API_URL = 'http://localhost:5000/api';
+const API_URL = import.meta.env.VITE_API_URL || (window.location.hostname === 'localhost' ? 'http://localhost:5000/api' : '/api');
 
 export const api = axios.create({
     baseURL: API_URL,
-    // Remove default Content-Type to let axios set it automatically for FormData
 })
 
 // Request interceptor to add auth token and handle content type
