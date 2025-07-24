@@ -25,6 +25,7 @@ export const Layout: React.FC = () => {
         { name: 'Dashboard', href: '/dashboard', icon: Home },
         { name: 'Scripts', href: '/scripts', icon: BookOpen },
         { name: 'Practice', href: '/practice', icon: Mic },
+        { name: 'Oral Exam', href: '/oral-exam', icon: Mic },
         { name: 'History', href: '/history', icon: History },
         { name: 'Profile', href: '/profile', icon: User },
     ]

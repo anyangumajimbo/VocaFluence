@@ -12,6 +12,7 @@ import { Profile } from './pages/Profile'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { AdminScripts } from './pages/AdminScripts'
 import { AdminUsers } from './pages/AdminUsers'
+import OralExam from './pages/OralExam';
 
 function App() {
     return (
@@ -63,6 +64,14 @@ function App() {
                     </ProtectedRoute>
                 }>
                     <Route index element={<Profile />} />
+                </Route>
+
+                <Route path="/oral-exam" element={
+                    <ProtectedRoute>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<OralExam />} />
                 </Route>
 
                 {/* Admin routes */}

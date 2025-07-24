@@ -14,6 +14,7 @@ import scriptRoutes from './routes/scripts';
 import practiceRoutes from './routes/practice';
 import userRoutes from './routes/users';
 import reminderRoutes from './routes/reminders';
+import oralExamRoutes from './routes/oralExam';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -77,6 +78,7 @@ app.use('/api/scripts', scriptRoutes);
 app.use('/api/practice', authMiddleware, practiceRoutes);
 app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/reminders', authMiddleware, reminderRoutes);
+app.use('/api/oral-exam', oralExamRoutes);
 
 // Global error handling middleware
 app.use(errorHandler);
