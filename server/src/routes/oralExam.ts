@@ -4,6 +4,7 @@ import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import delfB2Questions from '../data/delfB2Questions';
 import { authMiddleware } from '../middleware/auth';
 import OralExamSession from '../models/OralExamSession';
+import multer from 'multer';
 
 const router: Router = express.Router();
 
@@ -24,6 +25,8 @@ Vous êtes examinateur officiel du DELF B2. Vous suivez strictement la structure
 - Terminez par un commentaire global.
 Toutes vos interventions sont en français. Ne révélez jamais la liste des sujets. Ne sortez jamais de votre rôle d'examinateur.
 `;
+
+const upload = multer({ storage: multer.memoryStorage() });
 
 // POST /api/oral-exam/session (start new session)
 router.post('/session', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
@@ -146,9 +149,35 @@ router.post('/tts', authMiddleware, async (req: Request, res: Response, next: Ne
             voice,
             response_format: 'mp3'
         });
+        const buffer = Buffer.from(await response.arrayBuffer());
         res.setHeader('Content-Type', 'audio/mpeg');
-        response.body.pipe(res);
+        res.send(buffer);
     } catch (error) {
+        console.error('TTS error:', error);
+        next(error);
+        return;
+    }
+});
+
+// Speech-to-Text (Whisper) endpoint
+router.post('/transcribe', authMiddleware, upload.single('audio'), async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        if (!req.file) {
+            return res.status(400).json({ message: 'No audio file uploaded.' });
+        }
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const response = await openai.audio.transcriptions.create({
+            file: {
+                value: req.file.buffer,
+                options: { filename: req.file.originalname || 'audio.webm' }
+            },
+            model: 'whisper-1',
+            response_format: 'text',
+            language: 'fr'
+        });
+        res.json({ transcript: response });
+    } catch (error) {
+        console.error('Whisper STT error:', error);
         next(error);
         return;
     }
