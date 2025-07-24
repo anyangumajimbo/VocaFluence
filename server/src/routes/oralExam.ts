@@ -1,10 +1,17 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
 import OpenAI from 'openai';
-import delfB2Questions from '../../data/delfB2Questions';
+import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
+import delfB2Questions from '../data/delfB2Questions';
 import { authMiddleware } from '../middleware/auth';
 import OralExamSession from '../models/OralExamSession';
 
 const router: Router = express.Router();
+
+// Define your own Message type for MongoDB
+interface Message {
+    role: 'user' | 'assistant' | 'system';
+    content: string;
+}
 
 const DELF_B2_SYSTEM_PROMPT = `
 Vous êtes examinateur officiel du DELF B2. Vous suivez strictement la structure de l'épreuve orale :
@@ -23,14 +30,19 @@ router.post('/session', authMiddleware, async (req: Request, res: Response, next
     try {
         const userId = (req as any).user._id;
         const question = delfB2Questions[Math.floor(Math.random() * delfB2Questions.length)];
-        const messages = [
+        const messages: Message[] = [
             { role: 'system', content: DELF_B2_SYSTEM_PROMPT },
             { role: 'user', content: `Sujet de l'examen : ${question}` }
         ];
+        // Prepare messages for OpenAI
+        const openAIMessages: ChatCompletionMessageParam[] = messages.map(m => ({
+            role: m.role,
+            content: m.content
+        }));
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const completion = await openai.chat.completions.create({
             model: 'gpt-4o',
-            messages,
+            messages: openAIMessages,
             temperature: 0.7,
             max_tokens: 512
         });
@@ -43,13 +55,14 @@ router.post('/session', authMiddleware, async (req: Request, res: Response, next
             messages
         });
         await session.save();
-        res.status(201).json({
+        return res.status(201).json({
             sessionId: session._id,
             question,
             aiMessage
         });
     } catch (error) {
         next(error);
+        return;
     }
 });
 
@@ -60,14 +73,20 @@ router.post('/session/:sessionId/message', authMiddleware, async (req: Request, 
         const { sessionId } = req.params;
         const { userMessage } = req.body;
         const session = await OralExamSession.findOne({ _id: sessionId, user: userId });
-        if (!session) return res.status(404).json({ message: 'Session not found.' });
-        // Add user message
+        if (!session) {
+            return res.status(404).json({ message: 'Session not found.' });
+        }
+        // Add user message (Message type)
         session.messages.push({ role: 'user', content: userMessage });
         // Prepare messages for OpenAI
+        const openAIMessages: ChatCompletionMessageParam[] = session.messages.map(m => ({
+            role: m.role,
+            content: m.content
+        }));
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const completion = await openai.chat.completions.create({
             model: 'gpt-4o',
-            messages: session.messages,
+            messages: openAIMessages,
             temperature: 0.7,
             max_tokens: 512
         });
@@ -78,9 +97,10 @@ router.post('/session/:sessionId/message', authMiddleware, async (req: Request, 
             session.evaluation = { commentaireGlobal: aiMessage };
         }
         await session.save();
-        res.json({ aiMessage, sessionId });
+        return res.json({ aiMessage, sessionId });
     } catch (error) {
         next(error);
+        return;
     }
 });
 
@@ -89,9 +109,10 @@ router.get('/sessions', authMiddleware, async (req: Request, res: Response, next
     try {
         const userId = (req as any).user._id;
         const sessions = await OralExamSession.find({ user: userId }).sort({ createdAt: -1 });
-        res.json({ sessions });
+        return res.json({ sessions });
     } catch (error) {
         next(error);
+        return;
     }
 });
 
@@ -101,10 +122,13 @@ router.get('/session/:sessionId', authMiddleware, async (req: Request, res: Resp
         const userId = (req as any).user._id;
         const { sessionId } = req.params;
         const session = await OralExamSession.findOne({ _id: sessionId, user: userId });
-        if (!session) return res.status(404).json({ message: 'Session not found.' });
-        res.json({ session });
+        if (!session) {
+            return res.status(404).json({ message: 'Session not found.' });
+        }
+        return res.json({ session });
     } catch (error) {
         next(error);
+        return;
     }
 });
 

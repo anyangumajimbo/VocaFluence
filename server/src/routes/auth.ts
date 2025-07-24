@@ -91,8 +91,7 @@ router.post('/login', [
     const user = await User.findOne({ email: email.toLowerCase() });
     if (!user) {
         logger.warn('User not found for email: %s', email);
-        res.status(400).json({ message: 'Invalid credentials.' });
-        return;
+        return res.status(400).json({ message: 'Invalid credentials.' });
     }
 
     // Log password check (do not log actual password in production)
@@ -102,8 +101,7 @@ router.post('/login', [
     const isMatch = await user.comparePassword(password);
     if (!isMatch) {
         logger.warn('Password mismatch for user: %s', email);
-        res.status(400).json({ message: 'Invalid credentials.' });
-        return;
+        return res.status(400).json({ message: 'Invalid credentials.' });
     }
 
     // Generate JWT token
@@ -113,7 +111,7 @@ router.post('/login', [
         { expiresIn: '24h' }
     );
 
-    res.json({
+    return res.json({
         message: 'Login successful.',
         token,
         user: {
