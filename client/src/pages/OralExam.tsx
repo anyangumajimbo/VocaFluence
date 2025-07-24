@@ -78,6 +78,27 @@ const OralExam: React.FC = () => {
         }
     };
 
+    // Play AI message as audio using backend TTS
+    const playAudio = async (text: string) => {
+        try {
+            const res = await fetch('/api/oral-exam/tts', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${getToken()}`
+                },
+                body: JSON.stringify({ text })
+            });
+            if (!res.ok) throw new Error('Failed to fetch audio');
+            const audioBlob = await res.blob();
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            audio.play();
+        } catch (err) {
+            alert('Erreur lors de la lecture audio.');
+        }
+    };
+
     return (
         <div className="max-w-2xl mx-auto p-4">
             <h1 className="text-2xl font-bold mb-4">DELF B2 Oral Exam Simulator</h1>
@@ -101,6 +122,14 @@ const OralExam: React.FC = () => {
                                 <span className={msg.role === 'user' ? 'font-semibold text-blue-700' : 'font-semibold text-green-700'}>
                                     {msg.role === 'user' ? 'Vous' : 'Examinateur'}:
                                 </span> {msg.content}
+                                {msg.role === 'assistant' && (
+                                    <button
+                                        className="ml-2 text-blue-600 underline text-xs"
+                                        onClick={() => playAudio(msg.content)}
+                                    >
+                                        ▶️ Écouter
+                                    </button>
+                                )}
                             </div>
                         ))}
                     </div>

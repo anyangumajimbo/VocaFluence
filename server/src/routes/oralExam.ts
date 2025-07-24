@@ -132,4 +132,26 @@ router.get('/session/:sessionId', authMiddleware, async (req: Request, res: Resp
     }
 });
 
+// AI Text-to-Speech endpoint
+router.post('/tts', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const { text, voice = 'onyx' } = req.body;
+        if (!text) {
+            return res.status(400).json({ message: 'Text is required for TTS.' });
+        }
+        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+        const response = await openai.audio.speech.create({
+            model: 'tts-1',
+            input: text,
+            voice,
+            response_format: 'mp3'
+        });
+        res.setHeader('Content-Type', 'audio/mpeg');
+        response.body.pipe(res);
+    } catch (error) {
+        next(error);
+        return;
+    }
+});
+
 export default router; 
