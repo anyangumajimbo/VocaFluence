@@ -19,7 +19,7 @@ const OralExam: React.FC = () => {
     const [error, setError] = useState<string | null>(null);
     const [recording, setRecording] = useState(false);
     const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
-    const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+    const audioChunksRef = useRef<Blob[]>([]);
     const [transcript, setTranscript] = useState<string | null>(null);
     const audioInputRef = useRef<HTMLInputElement>(null);
 
@@ -104,31 +104,37 @@ const OralExam: React.FC = () => {
         }
     };
 
-    // Start recording
+    // Start recording (Practice logic)
     const startRecording = async () => {
         setTranscript(null);
-        setAudioChunks([]);
+        setError(null);
         setRecording(true);
+        audioChunksRef.current = [];
+        alert("You will be asked to allow microphone access. Please click 'Allow' to record your answer.");
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            const recorder = new MediaRecorder(stream);
+            const recorder = new MediaRecorder(stream, {
+                mimeType: 'audio/webm;codecs=opus', // Force standard Opus codec
+                audioBitsPerSecond: 128000 // Set bitrate for better compatibility
+            });
+            console.log('Recording mimeType:', recorder.mimeType);
             setMediaRecorder(recorder);
             recorder.ondataavailable = (e) => {
-                setAudioChunks((prev) => [...prev, e.data]);
+                audioChunksRef.current.push(e.data);
             };
             recorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
                 await transcribeAudio(audioBlob);
-                setAudioChunks([]);
+                stream.getTracks().forEach(track => track.stop());
             };
             recorder.start();
         } catch (err) {
-            setError('Microphone access denied or unavailable.');
+            setError('Microphone access denied or unavailable. Please check your browser and device settings to allow microphone access.');
             setRecording(false);
         }
     };
 
-    // Stop recording
+    // Stop recording (Practice logic)
     const stopRecording = () => {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             mediaRecorder.stop();
@@ -136,7 +142,7 @@ const OralExam: React.FC = () => {
         }
     };
 
-    // Upload audio and get transcript
+    // Upload audio and get transcript (Practice logic)
     const transcribeAudio = async (audioBlob: Blob) => {
         setLoading(true);
         setError(null);
@@ -198,11 +204,11 @@ const OralExam: React.FC = () => {
     };
 
     return (
-        <div className="max-w-2xl mx-auto p-4">
-            <h1 className="text-2xl font-bold mb-4">DELF B2 Oral Exam Simulator</h1>
+        <div className="flex flex-col items-center justify-center min-h-[60vh] px-2">
+            <h1 className="text-2xl md:text-3xl font-bold mb-6 text-center">DELF B2 Oral Exam Simulator</h1>
             {!sessionId ? (
                 <button
-                    className="bg-blue-600 text-white px-4 py-2 rounded"
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 mb-8"
                     onClick={startSession}
                     disabled={loading}
                 >
@@ -210,11 +216,11 @@ const OralExam: React.FC = () => {
                 </button>
             ) : (
                 <>
-                    <div className="mb-4">
+                    <div className="mb-4 text-center">
                         <div className="font-semibold">Sujet :</div>
                         <div className="italic">{question}</div>
                     </div>
-                    <div className="bg-gray-100 p-3 rounded mb-4 h-64 overflow-y-auto">
+                    <div className="bg-gray-100 p-3 rounded mb-4 h-64 overflow-y-auto w-full max-w-2xl">
                         {messages.map((msg, idx) => (
                             <div key={idx} className={msg.role === 'user' ? 'text-right' : 'text-left'}>
                                 <span className={msg.role === 'user' ? 'font-semibold text-blue-700' : 'font-semibold text-green-700'}>
@@ -222,23 +228,26 @@ const OralExam: React.FC = () => {
                                 </span> {msg.content}
                                 {msg.role === 'assistant' && (
                                     <button
-                                        className="ml-2 text-blue-600 underline text-xs"
+                                        className="inline-flex items-center justify-center ml-2 w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
                                         onClick={() => playAudio(msg.content)}
+                                        title="Écouter la réponse de l'examinateur"
                                     >
-                                        ▶️ Écouter
+                                        <span className="sr-only">Écouter</span>
+                                        ▶️
                                     </button>
                                 )}
                             </div>
                         ))}
                     </div>
                     {!evaluation && (
-                        <div className="flex gap-2 items-center mb-2">
+                        <div className="flex gap-2 items-center mb-2 w-full max-w-2xl justify-center">
                             <button
-                                className={`bg-${recording ? 'red' : 'green'}-600 text-white px-4 py-1 rounded`}
+                                className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${recording ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400`}
                                 onClick={recording ? stopRecording : startRecording}
                                 disabled={loading}
+                                title={recording ? 'Stop Recording' : 'Start Recording'}
                             >
-                                {recording ? 'Stop' : '🎤 Record'}
+                                {recording ? <span className="text-xl">■</span> : <span className="text-xl">🎤</span>}
                             </button>
                             <input ref={audioInputRef} type="file" accept="audio/*" style={{ display: 'none' }} />
                             <input
@@ -251,7 +260,7 @@ const OralExam: React.FC = () => {
                                 placeholder="Votre réponse..."
                             />
                             <button
-                                className="bg-blue-600 text-white px-4 py-1 rounded"
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
                                 onClick={sendMessage}
                                 disabled={loading}
                             >
