@@ -5,6 +5,20 @@ import delfB2Questions from '../data/delfB2Questions';
 import { authMiddleware } from '../middleware/auth';
 import OralExamSession from '../models/OralExamSession';
 import multer from 'multer';
+import fs from 'fs';
+import { Blob } from 'fetch-blob';
+import ffmpeg from 'fluent-ffmpeg';
+import stream from 'stream';
+
+// Explicitly set FFmpeg path for Windows
+ffmpeg.setFfmpegPath('C:/ProgramData/chocolatey/lib/ffmpeg/tools/ffmpeg/bin/ffmpeg.exe');
+
+let FileClass = globalThis.File;
+try {
+    if (!FileClass) {
+        FileClass = require('fetch-blob/file.js');
+    }
+} catch { }
 
 const router: Router = express.Router();
 
@@ -26,7 +40,7 @@ Vous êtes examinateur officiel du DELF B2. Vous suivez strictement la structure
 Toutes vos interventions sont en français. Ne révélez jamais la liste des sujets. Ne sortez jamais de votre rôle d'examinateur.
 `;
 
-const upload = multer({ storage: multer.memoryStorage() });
+const upload = multer({ dest: 'uploads/' }); // Saves to disk
 
 // POST /api/oral-exam/session (start new session)
 router.post('/session', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
@@ -151,7 +165,7 @@ router.post('/tts', authMiddleware, async (req: Request, res: Response, next: Ne
         });
         const buffer = Buffer.from(await response.arrayBuffer());
         res.setHeader('Content-Type', 'audio/mpeg');
-        res.send(buffer);
+        return res.send(buffer);
     } catch (error) {
         console.error('TTS error:', error);
         next(error);
@@ -165,17 +179,40 @@ router.post('/transcribe', authMiddleware, upload.single('audio'), async (req: R
         if (!req.file) {
             return res.status(400).json({ message: 'No audio file uploaded.' });
         }
+        console.log('File metadata:', {
+            size: req.file.size,
+            mimetype: req.file.mimetype,
+            originalname: req.file.originalname,
+            buffer: req.file.buffer?.byteLength
+        });
+        // Convert file to MP3 using ffmpeg (input is file path)
+        const convertToMP3 = (filePath: string) => new Promise<Buffer>((resolve, reject) => {
+            const outputChunks: Buffer[] = [];
+            const ffmpegProcess = ffmpeg(filePath)
+                .toFormat('mp3')
+                .on('error', reject)
+                .on('end', () => resolve(Buffer.concat(outputChunks)))
+                .pipe();
+            ffmpegProcess.on('data', (chunk: Buffer) => outputChunks.push(chunk));
+        });
+        const mp3Buffer = await convertToMP3(req.file.path);
+        let FileClass = globalThis.File;
+        try {
+            if (!FileClass) {
+                FileClass = require('fetch-blob/file.js');
+            }
+        } catch { }
+        const file = new FileClass([
+            mp3Buffer
+        ], 'audio.mp3', { type: 'audio/mp3' });
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const response = await openai.audio.transcriptions.create({
-            file: {
-                value: req.file.buffer,
-                options: { filename: req.file.originalname || 'audio.webm' }
-            },
+            file,
             model: 'whisper-1',
             response_format: 'text',
             language: 'fr'
         });
-        res.json({ transcript: response });
+        return res.json({ transcript: response });
     } catch (error) {
         console.error('Whisper STT error:', error);
         next(error);
