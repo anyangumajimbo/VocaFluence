@@ -53,3 +53,12 @@ coverage/
 
 # Ignore storybook static build
 storybook-static/ 
+
+# Ignore local utility scripts
+server/ffmpeg-test.js
+
+# Ignore all build artifacts from TypeScript in server/src/
+server/src/**/*.js
+server/src/**/*.js.map
+server/src/**/*.d.ts
+server/src/**/*.d.ts.map 
