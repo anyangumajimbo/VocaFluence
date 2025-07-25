@@ -275,4 +275,12 @@ For support, please open an issue in the GitHub repository or contact the develo
 
 ---
 
+## 📝 Known Issues & Tips
+
+**Double Audio/Voices in Microsoft Edge and Windows:**
+
+If you hear two voices (double audio) during the oral exam simulation, it may be caused by Microsoft Edge’s built-in “Read Aloud” feature, a browser extension, or Windows accessibility tools such as Narrator. To ensure you only hear the AI examiner’s voice, please make sure “Read Aloud” is turned off in Edge, disable any text-to-speech or screen reader extensions, and check that Windows Narrator is not active. On mobile devices and most other browsers, only the AI examiner’s voice should play by default. If you continue to experience double audio, try using a different browser or device for the best experience.
+
+---
+
 **VocaFluence** - Empowering language learners through AI-driven practice and feedback! 🎯 
