@@ -43,7 +43,7 @@ Toutes vos interventions sont en français. Ne révélez jamais la liste des suj
 const upload = multer({ dest: 'uploads/' }); // Saves to disk
 
 // POST /api/oral-exam/session (start new session)
-router.post('/session', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/session', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).user._id;
         const question = delfB2Questions[Math.floor(Math.random() * delfB2Questions.length)];
@@ -84,7 +84,7 @@ router.post('/session', authMiddleware, async (req: Request, res: Response, next
 });
 
 // POST /api/oral-exam/session/:sessionId/message (continue conversation)
-router.post('/session/:sessionId/message', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/session/:sessionId/message', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).user._id;
         const { sessionId } = req.params;
@@ -122,7 +122,7 @@ router.post('/session/:sessionId/message', authMiddleware, async (req: Request, 
 });
 
 // GET /api/oral-exam/sessions (list user's sessions)
-router.get('/sessions', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/sessions', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).user._id;
         const sessions = await OralExamSession.find({ user: userId }).sort({ createdAt: -1 });
@@ -134,7 +134,7 @@ router.get('/sessions', authMiddleware, async (req: Request, res: Response, next
 });
 
 // GET /api/oral-exam/session/:sessionId (get single session)
-router.get('/session/:sessionId', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.get('/session/:sessionId', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const userId = (req as any).user._id;
         const { sessionId } = req.params;
