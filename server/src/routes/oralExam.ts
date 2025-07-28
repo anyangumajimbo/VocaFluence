@@ -9,6 +9,7 @@ import fs from 'fs';
 import { Blob } from 'fetch-blob';
 import ffmpeg from 'fluent-ffmpeg';
 import stream from 'stream';
+import mongoose from 'mongoose';
 
 // Explicitly set FFmpeg path for Windows
 ffmpeg.setFfmpegPath('C:/ProgramData/chocolatey/lib/ffmpeg/tools/ffmpeg/bin/ffmpeg.exe');
@@ -45,8 +46,8 @@ const upload = multer({ dest: 'uploads/' }); // Saves to disk
 // POST /api/oral-exam/session (start new session)
 router.post('/session', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Use a default user ID since we removed authentication
-        const userId = 'default-user-id';
+        // Create a proper ObjectId for the user
+        const userId = new mongoose.Types.ObjectId();
         const question = delfB2Questions[Math.floor(Math.random() * delfB2Questions.length)];
         const messages: Message[] = [
             { role: 'system', content: DELF_B2_SYSTEM_PROMPT },
@@ -87,11 +88,10 @@ router.post('/session', async (req: Request, res: Response, next: NextFunction) 
 // POST /api/oral-exam/session/:sessionId/message (continue conversation)
 router.post('/session/:sessionId/message', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Use a default user ID since we removed authentication
-        const userId = 'default-user-id';
+        // For now, we'll use the sessionId to find the session without user filtering
         const { sessionId } = req.params;
         const { userMessage } = req.body;
-        const session = await OralExamSession.findOne({ _id: sessionId, user: userId });
+        const session = await OralExamSession.findById(sessionId);
         if (!session) {
             return res.status(404).json({ message: 'Session not found.' });
         }
@@ -126,9 +126,8 @@ router.post('/session/:sessionId/message', async (req: Request, res: Response, n
 // GET /api/oral-exam/sessions (list user's sessions)
 router.get('/sessions', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Use a default user ID since we removed authentication
-        const userId = 'default-user-id';
-        const sessions = await OralExamSession.find({ user: userId }).sort({ createdAt: -1 });
+        // For now, return all sessions since we're not filtering by user
+        const sessions = await OralExamSession.find().sort({ createdAt: -1 });
         return res.json({ sessions });
     } catch (error) {
         next(error);
@@ -139,10 +138,8 @@ router.get('/sessions', async (req: Request, res: Response, next: NextFunction) 
 // GET /api/oral-exam/session/:sessionId (get single session)
 router.get('/session/:sessionId', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Use a default user ID since we removed authentication
-        const userId = 'default-user-id';
         const { sessionId } = req.params;
-        const session = await OralExamSession.findOne({ _id: sessionId, user: userId });
+        const session = await OralExamSession.findById(sessionId);
         if (!session) {
             return res.status(404).json({ message: 'Session not found.' });
         }
