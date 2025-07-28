@@ -23,9 +23,6 @@ const OralExam: React.FC = () => {
     const [transcript, setTranscript] = useState<string | null>(null);
     const audioInputRef = useRef<HTMLInputElement>(null);
 
-    // Helper: get auth token from localStorage (adjust if you use context)
-    const getToken = () => localStorage.getItem('token');
-
     const startSession = async () => {
         setLoading(true);
         setError(null);
@@ -33,8 +30,7 @@ const OralExam: React.FC = () => {
             const res = await fetch('/api/oral-exam/session', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getToken()}`
+                    'Content-Type': 'application/json'
                 }
             });
             if (!res.ok) throw new Error('Failed to start session');
@@ -64,8 +60,7 @@ const OralExam: React.FC = () => {
             const res = await fetch(`/api/oral-exam/session/${sessionId}/message`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getToken()}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ userMessage: input })
             });
@@ -89,8 +84,7 @@ const OralExam: React.FC = () => {
             const res = await fetch('/api/oral-exam/tts', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getToken()}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ text })
             });
@@ -151,9 +145,6 @@ const OralExam: React.FC = () => {
             formData.append('audio', audioBlob, 'recording.webm');
             const res = await fetch('/api/oral-exam/transcribe', {
                 method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${getToken()}`
-                },
                 body: formData
             });
             if (!res.ok) throw new Error('Transcription failed');
@@ -185,8 +176,7 @@ const OralExam: React.FC = () => {
             const res = await fetch(`/api/oral-exam/session/${sessionId}/message`, {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${getToken()}`
+                    'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({ userMessage: text })
             });

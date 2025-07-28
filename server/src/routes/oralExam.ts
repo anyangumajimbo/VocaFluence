@@ -45,7 +45,8 @@ const upload = multer({ dest: 'uploads/' }); // Saves to disk
 // POST /api/oral-exam/session (start new session)
 router.post('/session', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = (req as any).user._id;
+        // Use a default user ID since we removed authentication
+        const userId = 'default-user-id';
         const question = delfB2Questions[Math.floor(Math.random() * delfB2Questions.length)];
         const messages: Message[] = [
             { role: 'system', content: DELF_B2_SYSTEM_PROMPT },
@@ -86,7 +87,8 @@ router.post('/session', async (req: Request, res: Response, next: NextFunction) 
 // POST /api/oral-exam/session/:sessionId/message (continue conversation)
 router.post('/session/:sessionId/message', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = (req as any).user._id;
+        // Use a default user ID since we removed authentication
+        const userId = 'default-user-id';
         const { sessionId } = req.params;
         const { userMessage } = req.body;
         const session = await OralExamSession.findOne({ _id: sessionId, user: userId });
@@ -124,7 +126,8 @@ router.post('/session/:sessionId/message', async (req: Request, res: Response, n
 // GET /api/oral-exam/sessions (list user's sessions)
 router.get('/sessions', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = (req as any).user._id;
+        // Use a default user ID since we removed authentication
+        const userId = 'default-user-id';
         const sessions = await OralExamSession.find({ user: userId }).sort({ createdAt: -1 });
         return res.json({ sessions });
     } catch (error) {
@@ -136,7 +139,8 @@ router.get('/sessions', async (req: Request, res: Response, next: NextFunction) 
 // GET /api/oral-exam/session/:sessionId (get single session)
 router.get('/session/:sessionId', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        const userId = (req as any).user._id;
+        // Use a default user ID since we removed authentication
+        const userId = 'default-user-id';
         const { sessionId } = req.params;
         const session = await OralExamSession.findOne({ _id: sessionId, user: userId });
         if (!session) {

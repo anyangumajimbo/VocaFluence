@@ -70,6 +70,12 @@ app.use(morgan('combined', {
     },
 }));
 
+// Add route logging to debug
+app.use((req, res, next) => {
+    console.log(`Incoming ${req.method} ${req.path}`);
+    next();
+});
+
 // Health check endpoint
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
