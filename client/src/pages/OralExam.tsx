@@ -1,4 +1,5 @@
 import React, { useState, useRef } from 'react';
+import { api } from '../services/api';
 
 interface Message {
     role: 'user' | 'assistant' | 'system';
@@ -27,14 +28,8 @@ const OralExam: React.FC = () => {
         setLoading(true);
         setError(null);
         try {
-            const res = await fetch('/api/oral-exam/session', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                }
-            });
-            if (!res.ok) throw new Error('Failed to start session');
-            const data = await res.json();
+            const res = await api.post('/oral-exam/session');
+            const data = res.data;
             setSessionId(data.sessionId);
             setQuestion(data.question);
             setMessages([
@@ -57,15 +52,10 @@ const OralExam: React.FC = () => {
             const userMsg: Message = { role: 'user', content: input };
             setMessages(prev => [...prev, userMsg]);
             setInput('');
-            const res = await fetch(`/api/oral-exam/session/${sessionId}/message`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ userMessage: input })
+            const res = await api.post(`/oral-exam/session/${sessionId}/message`, {
+                userMessage: input
             });
-            if (!res.ok) throw new Error('Failed to send message');
-            const data = await res.json();
+            const data = res.data;
             setMessages(prev => [...prev, { role: 'assistant', content: data.aiMessage }]);
             // Simple check for evaluation (could be improved)
             if (/Cohérence|Richesse du vocabulaire|Correction grammaticale|Prononciation|points forts|axes d'amélioration|commentaire global/i.test(data.aiMessage)) {
@@ -81,15 +71,8 @@ const OralExam: React.FC = () => {
     // Play AI message as audio using backend TTS
     const playAudio = async (text: string) => {
         try {
-            const res = await fetch('/api/oral-exam/tts', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ text })
-            });
-            if (!res.ok) throw new Error('Failed to fetch audio');
-            const audioBlob = await res.blob();
+            const res = await api.post('/oral-exam/tts', { text });
+            const audioBlob = new Blob([res.data], { type: 'audio/mpeg' });
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
             audio.play();
@@ -143,12 +126,8 @@ const OralExam: React.FC = () => {
         try {
             const formData = new FormData();
             formData.append('audio', audioBlob, 'recording.webm');
-            const res = await fetch('/api/oral-exam/transcribe', {
-                method: 'POST',
-                body: formData
-            });
-            if (!res.ok) throw new Error('Transcription failed');
-            const data = await res.json();
+            const res = await api.post('/oral-exam/transcribe', formData);
+            const data = res.data;
             setTranscript(data.transcript);
         } catch (err: any) {
             setError(err.message);
@@ -173,15 +152,10 @@ const OralExam: React.FC = () => {
             const userMsg: Message = { role: 'user', content: text };
             setMessages(prev => [...prev, userMsg]);
             setInput('');
-            const res = await fetch(`/api/oral-exam/session/${sessionId}/message`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ userMessage: text })
+            const res = await api.post(`/oral-exam/session/${sessionId}/message`, {
+                userMessage: text
             });
-            if (!res.ok) throw new Error('Failed to send message');
-            const data = await res.json();
+            const data = res.data;
             setMessages(prev => [...prev, { role: 'assistant', content: data.aiMessage }]);
             if (/Cohérence|Richesse du vocabulaire|Correction grammaticale|Prononciation|points forts|axes d'amélioration|commentaire global/i.test(data.aiMessage)) {
                 setEvaluation({ commentaireGlobal: data.aiMessage });
