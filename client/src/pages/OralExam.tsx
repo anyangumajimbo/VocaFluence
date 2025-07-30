@@ -10,6 +10,12 @@ interface Evaluation {
     commentaireGlobal?: string;
 }
 
+interface AudioConfig {
+    mimeType: string;
+    requiresConversion: boolean;
+    platform: string;
+}
+
 const OralExam: React.FC = () => {
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [question, setQuestion] = useState<string | null>(null);
@@ -23,6 +29,41 @@ const OralExam: React.FC = () => {
     const audioChunksRef = useRef<Blob[]>([]);
     const [transcript, setTranscript] = useState<string | null>(null);
     const audioInputRef = useRef<HTMLInputElement>(null);
+    const [audioConfig, setAudioConfig] = useState<AudioConfig | null>(null);
+
+    // Platform and audio format detection
+    const detectAudioCapabilities = (): AudioConfig => {
+        const userAgent = navigator.userAgent.toLowerCase();
+        const isIOS = /iphone|ipad|ipod/.test(userAgent);
+        const isAndroid = /android/.test(userAgent);
+
+        // Check WebM support
+        const webmSupported = MediaRecorder.isTypeSupported('audio/webm;codecs=opus');
+
+        let mimeType: string;
+        let requiresConversion: boolean;
+        let platform: string;
+
+        if (webmSupported && !isIOS) {
+            // Method A: Efficient WebM recording
+            mimeType = 'audio/webm;codecs=opus';
+            requiresConversion = false;
+            platform = isAndroid ? 'android' : 'desktop';
+        } else {
+            // Method B: Fallback with conversion
+            if (isIOS) {
+                mimeType = 'audio/mp4';
+            } else if (isAndroid) {
+                mimeType = 'audio/webm';
+            } else {
+                mimeType = 'audio/wav';
+            }
+            requiresConversion = true;
+            platform = isIOS ? 'ios' : isAndroid ? 'android' : 'desktop';
+        }
+
+        return { mimeType, requiresConversion, platform };
+    };
 
     const startSession = async () => {
         setLoading(true);
@@ -57,7 +98,6 @@ const OralExam: React.FC = () => {
             });
             const data = res.data;
             setMessages(prev => [...prev, { role: 'assistant', content: data.aiMessage }]);
-            // Simple check for evaluation (could be improved)
             if (/Cohérence|Richesse du vocabulaire|Correction grammaticale|Prononciation|points forts|axes d'amélioration|commentaire global/i.test(data.aiMessage)) {
                 setEvaluation({ commentaireGlobal: data.aiMessage });
             }
@@ -68,7 +108,6 @@ const OralExam: React.FC = () => {
         }
     };
 
-    // Play AI message as audio using backend TTS
     const playAudio = async (text: string) => {
         try {
             const res = await api.post('/oral-exam/tts', { text });
@@ -81,29 +120,44 @@ const OralExam: React.FC = () => {
         }
     };
 
-    // Start recording (Practice logic)
     const startRecording = async () => {
         setTranscript(null);
         setError(null);
+
+        // Detect audio capabilities
+        const config = detectAudioCapabilities();
+        setAudioConfig(config);
+
+        console.log('Audio Config:', config);
+
         setRecording(true);
         audioChunksRef.current = [];
-        alert("You will be asked to allow microphone access. Please click 'Allow' to record your answer.");
+
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+            // Use detected MIME type
             const recorder = new MediaRecorder(stream, {
-                mimeType: 'audio/webm;codecs=opus', // Force standard Opus codec
-                audioBitsPerSecond: 128000 // Set bitrate for better compatibility
+                mimeType: config.mimeType,
+                audioBitsPerSecond: 128000
             });
-            console.log('Recording mimeType:', recorder.mimeType);
+
+            console.log('Recording with MIME type:', recorder.mimeType);
+            console.log('Platform:', config.platform);
+            console.log('Requires conversion:', config.requiresConversion);
+
             setMediaRecorder(recorder);
+
             recorder.ondataavailable = (e) => {
                 audioChunksRef.current.push(e.data);
             };
+
             recorder.onstop = async () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
-                await transcribeAudio(audioBlob);
+                const audioBlob = new Blob(audioChunksRef.current, { type: config.mimeType });
+                await transcribeAudio(audioBlob, config);
                 stream.getTracks().forEach(track => track.stop());
             };
+
             recorder.start();
         } catch (err) {
             setError('Microphone access denied or unavailable. Please check your browser and device settings to allow microphone access.');
@@ -111,7 +165,6 @@ const OralExam: React.FC = () => {
         }
     };
 
-    // Stop recording (Practice logic)
     const stopRecording = () => {
         if (mediaRecorder && mediaRecorder.state !== 'inactive') {
             mediaRecorder.stop();
@@ -119,13 +172,33 @@ const OralExam: React.FC = () => {
         }
     };
 
-    // Upload audio and get transcript (Practice logic)
-    const transcribeAudio = async (audioBlob: Blob) => {
+    const transcribeAudio = async (audioBlob: Blob, config: AudioConfig) => {
         setLoading(true);
         setError(null);
         try {
             const formData = new FormData();
-            formData.append('audio', audioBlob, 'recording.webm');
+
+            // Set appropriate filename based on format
+            let filename = 'recording';
+            if (config.mimeType.includes('webm')) {
+                filename += '.webm';
+            } else if (config.mimeType.includes('mp4')) {
+                filename += '.m4a';
+            } else {
+                filename += '.wav';
+            }
+
+            formData.append('audio', audioBlob, filename);
+            formData.append('requiresConversion', config.requiresConversion.toString());
+            formData.append('platform', config.platform);
+
+            console.log('Uploading audio with config:', {
+                mimeType: config.mimeType,
+                requiresConversion: config.requiresConversion,
+                platform: config.platform,
+                filename: filename
+            });
+
             const res = await api.post('/oral-exam/transcribe', formData);
             const data = res.data;
             setTranscript(data.transcript);
@@ -136,7 +209,6 @@ const OralExam: React.FC = () => {
         }
     };
 
-    // Send transcript as user message
     const sendTranscript = async () => {
         if (!transcript || !sessionId) return;
         setInput(transcript);
@@ -144,7 +216,6 @@ const OralExam: React.FC = () => {
         await sendMessageWithText(transcript);
     };
 
-    // Helper to send a specific text as user message
     const sendMessageWithText = async (text: string) => {
         setLoading(true);
         setError(null);
@@ -170,6 +241,16 @@ const OralExam: React.FC = () => {
     return (
         <div className="flex flex-col items-center justify-center min-h-[60vh] px-2">
             <h1 className="text-2xl md:text-3xl font-bold mb-6 text-center">DELF B2 Oral Exam Simulator</h1>
+
+            {/* Audio Config Display */}
+            {audioConfig && (
+                <div className="mb-4 p-2 bg-blue-100 rounded text-sm">
+                    <div>Platform: {audioConfig.platform}</div>
+                    <div>Format: {audioConfig.mimeType}</div>
+                    <div>Conversion: {audioConfig.requiresConversion ? 'Required' : 'Not Required'}</div>
+                </div>
+            )}
+
             {!sessionId ? (
                 <button
                     className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 mb-8"
