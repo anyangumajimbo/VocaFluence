@@ -29,7 +29,7 @@ const OralExam: React.FC = () => {
     const audioChunksRef = useRef<Blob[]>([]);
     const [transcript, setTranscript] = useState<string | null>(null);
     const audioInputRef = useRef<HTMLInputElement>(null);
-    const [audioConfig, setAudioConfig] = useState<AudioConfig | null>(null);
+
 
     // Platform and audio format detection
     const detectAudioCapabilities = (): AudioConfig => {
@@ -126,9 +126,8 @@ const OralExam: React.FC = () => {
 
         // Detect audio capabilities
         const config = detectAudioCapabilities();
-        setAudioConfig(config);
 
-        console.log('Audio Config:', config);
+
 
         setRecording(true);
         audioChunksRef.current = [];
@@ -142,9 +141,7 @@ const OralExam: React.FC = () => {
                 audioBitsPerSecond: 128000
             });
 
-            console.log('Recording with MIME type:', recorder.mimeType);
-            console.log('Platform:', config.platform);
-            console.log('Requires conversion:', config.requiresConversion);
+
 
             setMediaRecorder(recorder);
 
@@ -192,12 +189,7 @@ const OralExam: React.FC = () => {
             formData.append('requiresConversion', config.requiresConversion.toString());
             formData.append('platform', config.platform);
 
-            console.log('Uploading audio with config:', {
-                mimeType: config.mimeType,
-                requiresConversion: config.requiresConversion,
-                platform: config.platform,
-                filename: filename
-            });
+
 
             const res = await api.post('/oral-exam/transcribe', formData);
             const data = res.data;
@@ -242,14 +234,7 @@ const OralExam: React.FC = () => {
         <div className="flex flex-col items-center justify-center min-h-[60vh] px-2">
             <h1 className="text-2xl md:text-3xl font-bold mb-6 text-center">DELF B2 Oral Exam Simulator</h1>
 
-            {/* Audio Config Display */}
-            {audioConfig && (
-                <div className="mb-4 p-2 bg-blue-100 rounded text-sm">
-                    <div>Platform: {audioConfig.platform}</div>
-                    <div>Format: {audioConfig.mimeType}</div>
-                    <div>Conversion: {audioConfig.requiresConversion ? 'Required' : 'Not Required'}</div>
-                </div>
-            )}
+
 
             {!sessionId ? (
                 <button
