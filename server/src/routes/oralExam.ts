@@ -10,9 +10,15 @@ import mongoose from 'mongoose';
 import ffmpeg from 'fluent-ffmpeg';
 import stream from 'stream';
 
-// Explicitly set FFmpeg path for Windows
+// Set FFmpeg path - try system PATH first, then fallback to common Windows location
 if (process.platform === 'win32') {
-    ffmpeg.setFfmpegPath('C:\\ffmpeg\\bin\\ffmpeg.exe');
+    // Try to use FFmpeg from system PATH
+    try {
+        ffmpeg.setFfmpegPath('ffmpeg'); // Use from PATH
+    } catch (error) {
+        // Fallback to common Windows installation
+        ffmpeg.setFfmpegPath('C:\\ffmpeg\\bin\\ffmpeg.exe');
+    }
 }
 
 // Helper function to convert audio to MP3 using FFmpeg
@@ -172,7 +178,7 @@ router.get('/session/:sessionId', async (req: Request, res: Response, next: Next
 });
 
 // AI Text-to-Speech endpoint
-router.post('/tts', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/tts', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { text, voice = 'onyx' } = req.body;
         if (!text) {
@@ -257,8 +263,13 @@ router.post('/transcribe', upload.single('audio'), async (req: Request, res: Res
         console.log('Sending to OpenAI Whisper...');
 
         try {
+            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+            
+            // Create a proper File object for OpenAI Whisper
+            const file = new File([audioBuffer], 'audio.webm', { type: finalMimeType });
+            
             const transcription = await openai.audio.transcriptions.create({
-                file: new Blob([audioBuffer], { type: finalMimeType }),
+                file: file,
                 model: "whisper-1",
                 language: "fr" // French for DELF B2
             });
@@ -268,7 +279,7 @@ router.post('/transcribe', upload.single('audio'), async (req: Request, res: Res
             // Clean up uploaded file
             await fs.remove(req.file.path);
 
-            res.json({
+            return res.json({
                 transcript: transcription.text,
                 processingMethod: requiresConversion ? 'FFmpeg Conversion' : 'Direct Processing',
                 platform: platform,
@@ -290,7 +301,7 @@ router.post('/transcribe', upload.single('audio'), async (req: Request, res: Res
 
     } catch (error) {
         console.error('Transcription endpoint error:', error);
-        res.status(500).json({
+        return res.status(500).json({
             error: 'Internal server error',
             details: error instanceof Error ? error.message : 'Unknown error'
         });
