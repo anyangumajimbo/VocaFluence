@@ -20,7 +20,6 @@ const OralExam: React.FC = () => {
     const [sessionId, setSessionId] = useState<string | null>(null);
     const [question, setQuestion] = useState<string | null>(null);
     const [messages, setMessages] = useState<Message[]>([]);
-    const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
     const [evaluation, setEvaluation] = useState<Evaluation | null>(null);
     const [error, setError] = useState<string | null>(null);
@@ -28,8 +27,7 @@ const OralExam: React.FC = () => {
     const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
     const [transcript, setTranscript] = useState<string | null>(null);
-    const audioInputRef = useRef<HTMLInputElement>(null);
-
+    const [showHistory, setShowHistory] = useState(false);
 
     // Platform and audio format detection
     const detectAudioCapabilities = (): AudioConfig => {
@@ -85,28 +83,7 @@ const OralExam: React.FC = () => {
         }
     };
 
-    const sendMessage = async () => {
-        if (!input.trim() || !sessionId) return;
-        setLoading(true);
-        setError(null);
-        try {
-            const userMsg: Message = { role: 'user', content: input };
-            setMessages(prev => [...prev, userMsg]);
-            setInput('');
-            const res = await api.post(`/oral-exam/session/${sessionId}/message`, {
-                userMessage: input
-            });
-            const data = res.data;
-            setMessages(prev => [...prev, { role: 'assistant', content: data.aiMessage }]);
-            if (/Cohérence|Richesse du vocabulaire|Correction grammaticale|Prononciation|points forts|axes d'amélioration|commentaire global/i.test(data.aiMessage)) {
-                setEvaluation({ commentaireGlobal: data.aiMessage });
-            }
-        } catch (err: any) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+
 
     const playAudio = async (text: string) => {
         try {
@@ -127,8 +104,6 @@ const OralExam: React.FC = () => {
         // Detect audio capabilities
         const config = detectAudioCapabilities();
 
-
-
         setRecording(true);
         audioChunksRef.current = [];
 
@@ -140,8 +115,6 @@ const OralExam: React.FC = () => {
                 mimeType: config.mimeType,
                 audioBitsPerSecond: 128000
             });
-
-
 
             setMediaRecorder(recorder);
 
@@ -189,8 +162,6 @@ const OralExam: React.FC = () => {
             formData.append('requiresConversion', config.requiresConversion.toString());
             formData.append('platform', config.platform);
 
-
-
             const res = await api.post('/oral-exam/transcribe', formData);
             const data = res.data;
             setTranscript(data.transcript);
@@ -203,7 +174,6 @@ const OralExam: React.FC = () => {
 
     const sendTranscript = async () => {
         if (!transcript || !sessionId) return;
-        setInput(transcript);
         setTranscript(null);
         await sendMessageWithText(transcript);
     };
@@ -214,7 +184,6 @@ const OralExam: React.FC = () => {
         try {
             const userMsg: Message = { role: 'user', content: text };
             setMessages(prev => [...prev, userMsg]);
-            setInput('');
             const res = await api.post(`/oral-exam/session/${sessionId}/message`, {
                 userMessage: text
             });
@@ -230,96 +199,175 @@ const OralExam: React.FC = () => {
         }
     };
 
+    // Get current examiner message (latest assistant message)
+    const getCurrentExaminerMessage = () => {
+        const assistantMessages = messages.filter(msg => msg.role === 'assistant');
+        return assistantMessages[assistantMessages.length - 1]?.content || '';
+    };
+
     return (
-        <div className="flex flex-col items-center justify-center min-h-[60vh] px-2">
-            <h1 className="text-2xl md:text-3xl font-bold mb-6 text-center">DELF B2 Oral Exam Simulator</h1>
-
-
-
-            {!sessionId ? (
-                <button
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 mb-8"
-                    onClick={startSession}
-                    disabled={loading}
-                >
-                    {loading ? 'Starting...' : 'Start New Exam'}
-                </button>
-            ) : (
-                <>
-                    <div className="mb-4 text-center">
-                        <div className="font-semibold">Sujet :</div>
-                        <div className="italic">{question}</div>
+        <div className="min-h-screen bg-gray-50">
+            {/* Header */}
+            <div className="bg-white shadow-sm border-b">
+                <div className="max-w-4xl mx-auto px-4 py-4">
+                    <div className="text-center">
+                        <h1 className="text-2xl md:text-3xl font-bold text-gray-900">DELF B2 ORAL EXAM</h1>
+                        {question && (
+                            <div className="mt-2">
+                                <span className="font-semibold text-gray-700">SUJET:</span>
+                                <span className="ml-2 italic text-gray-600">{question}</span>
+                            </div>
+                        )}
                     </div>
-                    <div className="bg-gray-100 p-3 rounded mb-4 h-64 overflow-y-auto w-full max-w-2xl">
-                        {messages.map((msg, idx) => (
-                            <div key={idx} className={msg.role === 'user' ? 'text-right' : 'text-left'}>
-                                <span className={msg.role === 'user' ? 'font-semibold text-blue-700' : 'font-semibold text-green-700'}>
-                                    {msg.role === 'user' ? 'Vous' : 'Examinateur'}:
-                                </span> {msg.content}
-                                {msg.role === 'assistant' && (
-                                    <button
-                                        className="inline-flex items-center justify-center ml-2 w-10 h-10 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                        onClick={() => playAudio(msg.content)}
-                                        title="Écouter la réponse de l'examinateur"
-                                    >
-                                        <span className="sr-only">Écouter</span>
-                                        ▶️
-                                    </button>
+                </div>
+            </div>
+
+            <div className="max-w-4xl mx-auto px-4 py-6">
+                {!sessionId ? (
+                    <div className="text-center">
+                        <button
+                            className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-lg text-lg font-semibold shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2"
+                            onClick={startSession}
+                            disabled={loading}
+                        >
+                            {loading ? 'Starting...' : 'Start New Exam'}
+                        </button>
+                    </div>
+                ) : (
+                    <div className="space-y-6">
+                        {/* Examiner's Box */}
+                        <div className="bg-white rounded-lg shadow-md border border-gray-200">
+                            <div className="px-4 py-3 bg-green-50 border-b border-green-200 rounded-t-lg">
+                                <h3 className="font-semibold text-green-800">Examiner's Box</h3>
+                                <p className="text-xs text-green-600 mt-1">Current examiner message only</p>
+                            </div>
+                            <div className="p-4 min-h-[60px]">
+                                {getCurrentExaminerMessage() ? (
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="flex-1">
+                                            <p className="text-gray-800 leading-relaxed">{getCurrentExaminerMessage()}</p>
+                                        </div>
+                                        <button
+                                            className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                            onClick={() => playAudio(getCurrentExaminerMessage())}
+                                            title="Écouter la réponse de l'examinateur"
+                                        >
+                                            <span className="text-sm">▶️</span>
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <p className="text-gray-500 italic">No examiner message yet</p>
                                 )}
                             </div>
-                        ))}
+                        </div>
+
+                        {/* Transcription Box */}
+                        <div className="bg-white rounded-lg shadow-md border border-gray-200">
+                            <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 rounded-t-lg">
+                                <h3 className="font-semibold text-blue-800">TRANSCRIPTION</h3>
+                                <p className="text-xs text-blue-600 mt-1">Transcription of current speech by student</p>
+                            </div>
+                            <div className="p-4 min-h-[120px]">
+                                {transcript ? (
+                                    <div className="space-y-3">
+                                        <div className="bg-blue-50 p-3 rounded border">
+                                            <p className="text-gray-800 italic leading-relaxed">{transcript}</p>
+                                        </div>
+                                        <button
+                                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400"
+                                            onClick={sendTranscript}
+                                            disabled={loading}
+                                        >
+                                            SEND
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-4">
+                                        <div className="flex justify-center">
+                                            <button
+                                                className={`inline-flex items-center justify-center w-16 h-16 rounded-full ${recording ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400`}
+                                                onClick={recording ? stopRecording : startRecording}
+                                                disabled={loading}
+                                                title={recording ? 'Stop Recording' : 'Start Recording'}
+                                            >
+                                                {recording ? <span className="text-2xl">■</span> : <span className="text-2xl">🎤</span>}
+                                            </button>
+                                        </div>
+                                        <div className="text-center">
+                                            <p className="text-gray-600 text-sm">
+                                                {recording ? 'Recording... Click to stop' : 'Click microphone to start recording'}
+                                            </p>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <button
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-6 py-3 rounded-lg font-semibold shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                onClick={() => setShowHistory(!showHistory)}
+                            >
+                                {showHistory ? 'HIDE HISTORY' : 'SHOW HISTORY'}
+                            </button>
+                        </div>
+
+                        {/* History Section */}
+                        {showHistory && (
+                            <div className="bg-white rounded-lg shadow-md border border-gray-200">
+                                <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 rounded-t-lg">
+                                    <h3 className="font-semibold text-gray-800">Conversation History</h3>
+                                    <p className="text-xs text-gray-600 mt-1">Scroll to view the full conversation with the examiner</p>
+                                </div>
+                                <div className="p-4 max-h-96 overflow-y-auto">
+                                    {messages.length > 0 ? (
+                                        <div className="space-y-3">
+                                            {messages.map((msg, idx) => (
+                                                <div key={idx} className={`p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-50 ml-8' : 'bg-green-50 mr-8'}`}>
+                                                    <div className={`font-semibold text-sm mb-1 ${msg.role === 'user' ? 'text-blue-700' : 'text-green-700'}`}>
+                                                        {msg.role === 'user' ? 'You' : 'Examiner'}:
+                                                    </div>
+                                                    <div className="text-gray-800">{msg.content}</div>
+                                                    {msg.role === 'assistant' && (
+                                                        <button
+                                                            className="mt-2 inline-flex items-center justify-center w-6 h-6 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
+                                                            onClick={() => playAudio(msg.content)}
+                                                            title="Écouter"
+                                                        >
+                                                            <span className="text-xs">▶️</span>
+                                                        </button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-gray-500 italic text-center">No conversation history yet</p>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Evaluation */}
+                        {evaluation && (
+                            <div className="bg-white rounded-lg shadow-md border border-gray-200">
+                                <div className="px-4 py-3 bg-yellow-50 border-b border-yellow-200 rounded-t-lg">
+                                    <h3 className="font-semibold text-yellow-800">Final Evaluation</h3>
+                                </div>
+                                <div className="p-4">
+                                    <div className="text-gray-800">{evaluation.commentaireGlobal}</div>
+                                </div>
+                            </div>
+                        )}
                     </div>
-                    {!evaluation && (
-                        <div className="flex gap-2 items-center mb-2 w-full max-w-2xl justify-center">
-                            <button
-                                className={`inline-flex items-center justify-center w-12 h-12 rounded-full ${recording ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400`}
-                                onClick={recording ? stopRecording : startRecording}
-                                disabled={loading}
-                                title={recording ? 'Stop Recording' : 'Start Recording'}
-                            >
-                                {recording ? <span className="text-xl">■</span> : <span className="text-xl">🎤</span>}
-                            </button>
-                            <input ref={audioInputRef} type="file" accept="audio/*" style={{ display: 'none' }} />
-                            <input
-                                className="flex-1 border px-2 py-1 rounded"
-                                type="text"
-                                value={input}
-                                onChange={e => setInput(e.target.value)}
-                                onKeyDown={e => e.key === 'Enter' && sendMessage()}
-                                disabled={loading}
-                                placeholder="Votre réponse..."
-                            />
-                            <button
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold shadow-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                onClick={sendMessage}
-                                disabled={loading}
-                            >
-                                Envoyer
-                            </button>
-                        </div>
-                    )}
-                    {transcript && !evaluation && (
-                        <div className="mb-2 p-2 bg-yellow-100 rounded">
-                            <div className="mb-1">Transcription :</div>
-                            <div className="italic">{transcript}</div>
-                            <button
-                                className="mt-2 bg-blue-600 text-white px-3 py-1 rounded"
-                                onClick={sendTranscript}
-                                disabled={loading}
-                            >
-                                Envoyer la transcription
-                            </button>
-                        </div>
-                    )}
-                    {evaluation && (
-                        <div className="mt-4 p-3 bg-green-100 rounded">
-                            <div className="font-bold mb-2">Évaluation finale :</div>
-                            <div>{evaluation.commentaireGlobal}</div>
-                        </div>
-                    )}
-                </>
-            )}
-            {error && <div className="text-red-600 mt-4">{error}</div>}
+                )}
+
+                {error && (
+                    <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+                        <div className="text-red-800">{error}</div>
+                    </div>
+                )}
+            </div>
         </div>
     );
 };
