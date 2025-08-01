@@ -28,6 +28,9 @@ const OralExam: React.FC = () => {
     const audioChunksRef = useRef<Blob[]>([]);
     const [transcript, setTranscript] = useState<string | null>(null);
     const [showHistory, setShowHistory] = useState(false);
+    const [isPlaying, setIsPlaying] = useState(false);
+    const [isPlayingStudentAudio, setIsPlayingStudentAudio] = useState(false);
+    const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
 
     // Platform and audio format detection
     const detectAudioCapabilities = (): AudioConfig => {
@@ -87,13 +90,37 @@ const OralExam: React.FC = () => {
 
     const playAudio = async (text: string) => {
         try {
+            setIsPlaying(true);
             const res = await api.post('/oral-exam/tts', { text });
             const audioBlob = new Blob([res.data], { type: 'audio/mpeg' });
             const audioUrl = URL.createObjectURL(audioBlob);
             const audio = new Audio(audioUrl);
-            audio.play();
+
+            audio.onended = () => {
+                setIsPlaying(false);
+            };
+
+            audio.onerror = () => {
+                setIsPlaying(false);
+                alert('Erreur lors de la lecture audio.');
+            };
+
+            await audio.play();
         } catch (err) {
+            setIsPlaying(false);
             alert('Erreur lors de la lecture audio.');
+        }
+    };
+
+    const togglePlayPause = async () => {
+        const currentMessage = getCurrentExaminerMessage();
+        if (currentMessage) {
+            if (isPlaying) {
+                setIsPlaying(false);
+                // Note: HTML5 Audio doesn't have a pause() method, so we'll just stop
+            } else {
+                await playAudio(currentMessage);
+            }
         }
     };
 
@@ -165,11 +192,40 @@ const OralExam: React.FC = () => {
             const res = await api.post('/oral-exam/transcribe', formData);
             const data = res.data;
             setTranscript(data.transcript);
+            setCurrentAudioBlob(audioBlob); // Store the audio blob for playback
         } catch (err: any) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
+    };
+
+    const playStudentAudio = () => {
+        if (!currentAudioBlob) return;
+
+        setIsPlayingStudentAudio(true);
+        const audioUrl = URL.createObjectURL(currentAudioBlob);
+        const audio = new Audio(audioUrl);
+
+        audio.onended = () => {
+            setIsPlayingStudentAudio(false);
+        };
+
+        audio.onerror = () => {
+            setIsPlayingStudentAudio(false);
+            alert('Erreur lors de la lecture audio.');
+        };
+
+        audio.play().catch(() => {
+            setIsPlayingStudentAudio(false);
+            alert('Erreur lors de la lecture audio.');
+        });
+    };
+
+    const reRecord = () => {
+        setTranscript(null);
+        setCurrentAudioBlob(null);
+        setIsPlayingStudentAudio(false);
     };
 
     const sendTranscript = async () => {
@@ -238,22 +294,33 @@ const OralExam: React.FC = () => {
                         {/* Examiner's Box */}
                         <div className="bg-white rounded-lg shadow-md border border-gray-200">
                             <div className="px-4 py-3 bg-green-50 border-b border-green-200 rounded-t-lg">
-                                <h3 className="font-semibold text-green-800">Examiner's Box</h3>
-                                <p className="text-xs text-green-600 mt-1">Current examiner message only</p>
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <h3 className="font-semibold text-green-800">EXAMINATEUR</h3>
+                                        <p className="text-xs text-green-600 mt-1">Message actuel de l'examinateur</p>
+                                    </div>
+                                    {getCurrentExaminerMessage() && (
+                                        <button
+                                            onClick={togglePlayPause}
+                                            className="flex-shrink-0 w-12 h-12 rounded-full bg-transparent border-2 border-blue-600 text-blue-600 hover:bg-blue-50 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transform hover:scale-105 active:scale-95"
+                                            title={isPlaying ? 'Pause' : 'Play'}
+                                        >
+                                            <div className="relative w-full h-full flex items-center justify-center">
+                                                <span className={`text-lg transition-opacity duration-300 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}>
+                                                    ▶
+                                                </span>
+                                                <span className={`text-lg absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}>
+                                                    ⏸
+                                                </span>
+                                            </div>
+                                        </button>
+                                    )}
+                                </div>
                             </div>
                             <div className="p-4 min-h-[60px]">
                                 {getCurrentExaminerMessage() ? (
-                                    <div className="flex items-start justify-between gap-3">
-                                        <div className="flex-1">
-                                            <p className="text-gray-800 leading-relaxed">{getCurrentExaminerMessage()}</p>
-                                        </div>
-                                        <button
-                                            className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 hover:bg-blue-700 text-white shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-blue-400"
-                                            onClick={() => playAudio(getCurrentExaminerMessage())}
-                                            title="Écouter la réponse de l'examinateur"
-                                        >
-                                            <span className="text-sm">▶️</span>
-                                        </button>
+                                    <div>
+                                        <p className="text-gray-800 leading-relaxed">{getCurrentExaminerMessage()}</p>
                                     </div>
                                 ) : (
                                     <p className="text-gray-500 italic">No examiner message yet</p>
@@ -264,8 +331,8 @@ const OralExam: React.FC = () => {
                         {/* Transcription Box */}
                         <div className="bg-white rounded-lg shadow-md border border-gray-200">
                             <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 rounded-t-lg">
-                                <h3 className="font-semibold text-blue-800">TRANSCRIPTION</h3>
-                                <p className="text-xs text-blue-600 mt-1">Transcription of current speech by student</p>
+                                <h3 className="font-semibold text-blue-800">CANDIDAT</h3>
+                                <p className="text-xs text-blue-600 mt-1">Transcription de la parole actuelle du candidat</p>
                             </div>
                             <div className="p-4 min-h-[120px]">
                                 {transcript ? (
@@ -273,13 +340,37 @@ const OralExam: React.FC = () => {
                                         <div className="bg-blue-50 p-3 rounded border">
                                             <p className="text-gray-800 italic leading-relaxed">{transcript}</p>
                                         </div>
-                                        <button
-                                            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400"
-                                            onClick={sendTranscript}
-                                            disabled={loading}
-                                        >
-                                            SEND
-                                        </button>
+                                        <div className="flex gap-3">
+                                            <button
+                                                className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400"
+                                                onClick={sendTranscript}
+                                                disabled={loading}
+                                            >
+                                                SEND
+                                            </button>
+                                            <button
+                                                className="flex-shrink-0 w-12 h-12 rounded-full bg-transparent border-2 border-blue-600 text-blue-600 hover:bg-blue-50 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transform hover:scale-105 active:scale-95"
+                                                onClick={playStudentAudio}
+                                                title={isPlayingStudentAudio ? 'Pause' : 'Play Recording'}
+                                                disabled={isPlayingStudentAudio}
+                                            >
+                                                <div className="relative w-full h-full flex items-center justify-center">
+                                                    <span className={`text-lg transition-opacity duration-300 ${isPlayingStudentAudio ? 'opacity-0' : 'opacity-100'}`}>
+                                                        ▶
+                                                    </span>
+                                                    <span className={`text-lg absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${isPlayingStudentAudio ? 'opacity-100' : 'opacity-0'}`}>
+                                                        ⏸
+                                                    </span>
+                                                </div>
+                                            </button>
+                                            <button
+                                                className="flex-shrink-0 w-12 h-12 rounded-full bg-green-600 hover:bg-green-700 text-white shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400"
+                                                onClick={reRecord}
+                                                title="Re-record"
+                                            >
+                                                <span className="text-2xl">🎤</span>
+                                            </button>
+                                        </div>
                                     </div>
                                 ) : (
                                     <div className="space-y-4">
