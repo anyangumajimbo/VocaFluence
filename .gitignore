@@ -57,6 +57,10 @@ storybook-static/
 # Ignore local utility scripts
 server/ffmpeg-test.js
 
+# Ignore FFmpeg binary files
+ffmpeg.zip
+ffmpeg-*.zip
+
 # Ignore all build artifacts from TypeScript in server/src/
 server/src/**/*.js
 server/src/**/*.js.map
