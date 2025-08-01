@@ -1,25 +1,52 @@
 import express, { Request, Response, NextFunction, Router } from 'express';
-import OpenAI from 'openai';
+import { OpenAI } from 'openai';
+import multer from 'multer';
+import fs from 'fs-extra';
+import path from 'path';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
 import delfB2Questions from '../data/delfB2Questions';
-import { authMiddleware } from '../middleware/auth';
 import OralExamSession from '../models/OralExamSession';
-import multer from 'multer';
-import fs from 'fs';
-import { Blob } from 'fetch-blob';
+import mongoose from 'mongoose';
 import ffmpeg from 'fluent-ffmpeg';
 import stream from 'stream';
-import mongoose from 'mongoose';
 
-// Explicitly set FFmpeg path for Windows
-ffmpeg.setFfmpegPath('C:/ProgramData/chocolatey/lib/ffmpeg/tools/ffmpeg/bin/ffmpeg.exe');
-
-let FileClass = globalThis.File;
-try {
-    if (!FileClass) {
-        FileClass = require('fetch-blob/file.js');
+// Set FFmpeg path - try system PATH first, then fallback to common Windows location
+if (process.platform === 'win32') {
+    // Try to use FFmpeg from system PATH
+    try {
+        ffmpeg.setFfmpegPath('ffmpeg'); // Use from PATH
+    } catch (error) {
+        // Fallback to common Windows installation
+        ffmpeg.setFfmpegPath('C:\\ffmpeg\\bin\\ffmpeg.exe');
     }
-} catch { }
+}
+
+// Helper function to convert audio to MP3 using FFmpeg
+const convertToMP3 = (filePath: string): Promise<Buffer> => {
+    return new Promise((resolve, reject) => {
+        const outputChunks: Buffer[] = [];
+
+        ffmpeg(filePath)
+            .audioCodec('libmp3lame')
+            .audioBitrate(128)
+            .audioChannels(1)
+            .audioFrequency(16000)
+            .toFormat('mp3')
+            .on('error', (error) => {
+                console.error('FFmpeg error:', error);
+                reject(error);
+            })
+            .on('end', () => {
+                const mp3Buffer = Buffer.concat(outputChunks);
+                console.log('FFmpeg conversion completed, buffer size:', mp3Buffer.length);
+                resolve(mp3Buffer);
+            })
+            .pipe()
+            .on('data', (chunk: Buffer) => {
+                outputChunks.push(chunk);
+            });
+    });
+};
 
 const router: Router = express.Router();
 
@@ -151,7 +178,7 @@ router.get('/session/:sessionId', async (req: Request, res: Response, next: Next
 });
 
 // AI Text-to-Speech endpoint
-router.post('/tts', authMiddleware, async (req: Request, res: Response, next: NextFunction) => {
+router.post('/tts', async (req: Request, res: Response, next: NextFunction) => {
     try {
         const { text, voice = 'onyx' } = req.body;
         if (!text) {
@@ -174,50 +201,110 @@ router.post('/tts', authMiddleware, async (req: Request, res: Response, next: Ne
     }
 });
 
-// Speech-to-Text (Whisper) endpoint
-router.post('/transcribe', authMiddleware, upload.single('audio'), async (req: Request, res: Response, next: NextFunction) => {
+// Transcribe audio endpoint with dual processing
+router.post('/transcribe', upload.single('audio'), async (req: Request, res: Response, next: NextFunction) => {
     try {
         if (!req.file) {
-            return res.status(400).json({ message: 'No audio file uploaded.' });
+            return res.status(400).json({ error: 'No audio file provided' });
         }
-        console.log('File metadata:', {
-            size: req.file.size,
-            mimetype: req.file.mimetype,
-            originalname: req.file.originalname,
-            buffer: req.file.buffer?.byteLength
+
+        const requiresConversion = req.body.requiresConversion === 'true';
+        const platform = req.body.platform || 'unknown';
+        const originalMimeType = req.file.mimetype;
+
+        console.log('Transcription request:', {
+            filename: req.file.filename,
+            originalMimeType: originalMimeType,
+            requiresConversion: requiresConversion,
+            platform: platform,
+            fileSize: req.file.size
         });
-        // Convert file to MP3 using ffmpeg (input is file path)
-        const convertToMP3 = (filePath: string) => new Promise<Buffer>((resolve, reject) => {
-            const outputChunks: Buffer[] = [];
-            const ffmpegProcess = ffmpeg(filePath)
-                .toFormat('mp3')
-                .on('error', reject)
-                .on('end', () => resolve(Buffer.concat(outputChunks)))
-                .pipe();
-            ffmpegProcess.on('data', (chunk: Buffer) => outputChunks.push(chunk));
-        });
-        const mp3Buffer = await convertToMP3(req.file.path);
-        let FileClass = globalThis.File;
-        try {
-            if (!FileClass) {
-                FileClass = require('fetch-blob/file.js');
+
+        let audioBuffer: Buffer;
+        let finalMimeType: string;
+
+        if (requiresConversion) {
+            // Method B: Convert audio using FFmpeg
+            console.log('Converting audio using FFmpeg...');
+
+            try {
+                // Convert to MP3 using FFmpeg
+                const mp3Buffer = await convertToMP3(req.file.path);
+                audioBuffer = mp3Buffer;
+                finalMimeType = 'audio/mpeg';
+
+                console.log('FFmpeg conversion successful');
+            } catch (ffmpegError) {
+                console.error('FFmpeg conversion failed:', ffmpegError);
+                return res.status(500).json({
+                    error: 'Audio conversion failed',
+                    details: ffmpegError instanceof Error ? ffmpegError.message : 'Unknown error'
+                });
             }
-        } catch { }
-        const file = new FileClass([
-            mp3Buffer
-        ], 'audio.mp3', { type: 'audio/mp3' });
-        const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
-        const response = await openai.audio.transcriptions.create({
-            file,
-            model: 'whisper-1',
-            response_format: 'text',
-            language: 'fr'
-        });
-        return res.json({ transcript: response });
+        } else {
+            // Method A: Use audio directly (WebM)
+            console.log('Using audio directly without conversion...');
+
+            try {
+                audioBuffer = await fs.readFile(req.file.path);
+                finalMimeType = originalMimeType;
+
+                console.log('Direct audio processing successful');
+            } catch (readError) {
+                console.error('Audio file read failed:', readError);
+                return res.status(500).json({
+                    error: 'Failed to read audio file',
+                    details: readError instanceof Error ? readError.message : 'Unknown error'
+                });
+            }
+        }
+
+        // Send to OpenAI Whisper
+        console.log('Sending to OpenAI Whisper...');
+
+        try {
+            const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+            
+            // Create a proper File object for OpenAI Whisper
+            const file = new File([audioBuffer], 'audio.webm', { type: finalMimeType });
+            
+            const transcription = await openai.audio.transcriptions.create({
+                file: file,
+                model: "whisper-1",
+                language: "fr" // French for DELF B2
+            });
+
+            console.log('Transcription successful:', transcription.text);
+
+            // Clean up uploaded file
+            await fs.remove(req.file.path);
+
+            return res.json({
+                transcript: transcription.text,
+                processingMethod: requiresConversion ? 'FFmpeg Conversion' : 'Direct Processing',
+                platform: platform,
+                originalFormat: originalMimeType,
+                finalFormat: finalMimeType
+            });
+
+        } catch (whisperError) {
+            console.error('OpenAI Whisper error:', whisperError);
+
+            // Clean up uploaded file
+            await fs.remove(req.file.path);
+
+            return res.status(500).json({
+                error: 'Transcription failed',
+                details: whisperError instanceof Error ? whisperError.message : 'Unknown error'
+            });
+        }
+
     } catch (error) {
-        console.error('Whisper STT error:', error);
-        next(error);
-        return;
+        console.error('Transcription endpoint error:', error);
+        return res.status(500).json({
+            error: 'Internal server error',
+            details: error instanceof Error ? error.message : 'Unknown error'
+        });
     }
 });
 
