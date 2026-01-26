@@ -4,12 +4,10 @@ import {
     Clock,
     TrendingUp,
     Target,
-    Calendar,
     Search,
     Play,
     Pause,
     Volume2,
-    Eye,
     BarChart3,
     Filter,
     Book,
@@ -169,13 +167,6 @@ export const History: React.FC = () => {
         return 'text-red-600'
     }
 
-    const getScoreBadge = (score?: number) => {
-        if (!score) return 'bg-gray-100 text-gray-800'
-        if (score >= 80) return 'bg-green-100 text-green-800'
-        if (score >= 60) return 'bg-yellow-100 text-yellow-800'
-        return 'bg-red-100 text-red-800'
-    }
-
     const formatDuration = (seconds: number) => {
         const mins = Math.floor(seconds / 60)
         const secs = seconds % 60
@@ -285,7 +276,7 @@ export const History: React.FC = () => {
                         >
                             All ({stats?.totalActivities || 0})
                         </button>
-                        {Object.entries(ACTIVITY_TYPE_LABELS).map(([type, { label, color }]) => (
+                        {Object.entries(ACTIVITY_TYPE_LABELS).map(([type, { label }]) => (
                             <button
                                 key={type}
                                 onClick={() => {
