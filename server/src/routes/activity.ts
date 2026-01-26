@@ -78,7 +78,8 @@ router.get('/history/:id', authMiddleware, async (req: Request, res: Response, n
  */
 router.get('/history/:id/audio', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const userId = (req as any).user._id;
+        const user = (req as any).user;
+        const userId = user._id;
         const { id } = req.params;
 
         // Validate MongoDB ID
@@ -87,7 +88,13 @@ router.get('/history/:id/audio', authMiddleware, async (req: Request, res: Respo
             return;
         }
 
-        const activity = await ActivityLog.findOne({ _id: id, userId });
+        // Allow admins to access any activity, students can only access their own
+        let activity;
+        if (user.role === 'admin') {
+            activity = await ActivityLog.findOne({ _id: id });
+        } else {
+            activity = await ActivityLog.findOne({ _id: id, userId });
+        }
 
         if (!activity) {
             res.status(404).json({ message: 'Activity not found' });

@@ -12,6 +12,8 @@ import { Profile } from './pages/Profile'
 import { AdminDashboard } from './pages/AdminDashboard'
 import { AdminScripts } from './pages/AdminScripts'
 import { AdminUsers } from './pages/AdminUsers'
+import AdminReview from './pages/AdminReview'
+import Feedback from './pages/Feedback'
 import OralExam from './pages/OralExam';
 
 function App() {
@@ -74,6 +76,14 @@ function App() {
                     <Route index element={<OralExam />} />
                 </Route>
 
+                <Route path="/feedback" element={
+                    <ProtectedRoute>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<Feedback />} />
+                </Route>
+
                 {/* Admin routes */}
                 <Route path="/admin" element={
                     <ProtectedRoute requireAdmin>
@@ -97,6 +107,14 @@ function App() {
                     </ProtectedRoute>
                 }>
                     <Route index element={<AdminUsers />} />
+                </Route>
+
+                <Route path="/admin/review" element={
+                    <ProtectedRoute requireAdmin>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<AdminReview />} />
                 </Route>
 
                 {/* Catch all - redirect to login if not authenticated */}

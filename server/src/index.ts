@@ -16,6 +16,7 @@ import userRoutes from './routes/users';
 import reminderRoutes from './routes/reminders';
 import oralExamRoutes from './routes/oralExam';
 import activityRoutes from './routes/activity';
+import reviewRoutes from './routes/review';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -50,12 +51,18 @@ app.use(cors({
     origin: (origin, callback) => {
         // Allow requests with no origin (like mobile apps or Postman)
         if (!origin) return callback(null, true);
-        
-        // Check if origin is in allowed list
-        if (corsOrigins.includes(origin)) {
-            callback(null, true);
-        } else if (origin.includes('vercel.app')) {
-            // Allow all Vercel preview and production URLs
+
+        // Allow localhost / LAN during dev on any port
+        const devOriginPattern = /^https?:\/\/(localhost|127\.0\.0\.1|192\.168\.\d+\.\d+)(:\\d+)?$/;
+
+        const ngrokPattern = /\.ngrok-free\.app$/;
+
+        if (
+            corsOrigins.includes(origin) ||
+            devOriginPattern.test(origin) ||
+            origin.includes('vercel.app') ||
+            ngrokPattern.test(origin)
+        ) {
             callback(null, true);
         } else {
             callback(new Error('Not allowed by CORS'));
@@ -105,6 +112,7 @@ app.use('/api/users', authMiddleware, userRoutes);
 app.use('/api/reminders', authMiddleware, reminderRoutes);
 app.use('/api/oral-exam', oralExamRoutes);
 app.use('/api/activity', authMiddleware, activityRoutes);
+app.use('/api/admin', authMiddleware, reviewRoutes);
 
 // Global error handling middleware
 app.use(errorHandler);

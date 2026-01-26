@@ -12,7 +12,8 @@ import {
     Users,
     FileText,
     Menu,
-    X
+    X,
+    MessageSquare
 } from 'lucide-react'
 
 export const Layout: React.FC = () => {
@@ -27,6 +28,7 @@ export const Layout: React.FC = () => {
         { name: 'Practice', href: '/practice', icon: Mic },
         { name: 'Oral Exam', href: '/oral-exam', icon: Mic },
         { name: 'History', href: '/history', icon: History },
+        { name: 'Feedback', href: '/feedback', icon: MessageSquare },
         { name: 'Profile', href: '/profile', icon: User },
     ]
 
@@ -34,6 +36,7 @@ export const Layout: React.FC = () => {
         { name: 'Admin Dashboard', href: '/admin', icon: BarChart3 },
         { name: 'Manage Scripts', href: '/admin/scripts', icon: FileText },
         { name: 'Manage Users', href: '/admin/users', icon: Users },
+        { name: 'Review Center', href: '/admin/review', icon: MessageSquare },
     ]
 
     const handleLogout = () => {
