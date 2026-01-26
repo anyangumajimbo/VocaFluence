@@ -286,8 +286,8 @@ router.get('/student/comments/:commentId/reference-audio', authMiddleware, async
     }
 });
 
-// GET: All feedback for a student
-router.get('/admin/student/feedback', authMiddleware, async (req: Request, res: Response): Promise<void> => {
+// GET: All feedback for the authenticated student
+router.get('/student/feedback', authMiddleware, async (req: Request, res: Response): Promise<void> => {
     try {
         const user = (req as any).user;
         const studentId = user._id;
