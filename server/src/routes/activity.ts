@@ -181,4 +181,25 @@ router.get('/stats', authMiddleware, async (req: Request, res: Response, next: N
     }
 });
 
+/**
+ * GET /api/activity/title-count/:title
+ * Get count of how many times user has recorded this specific title/activity
+ */
+router.get('/title-count/:title', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = (req as any).user._id;
+        const { title } = req.params;
+
+        const count = await ActivityLog.countDocuments({
+            userId,
+            title: decodeURIComponent(title)
+        });
+
+        res.json({ count, title: decodeURIComponent(title) });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router;
+

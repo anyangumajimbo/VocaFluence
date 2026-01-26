@@ -15,7 +15,8 @@ import {
     Book,
     Mic,
     Volume,
-    Loader
+    Loader,
+    Repeat2
 } from 'lucide-react'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
@@ -63,6 +64,7 @@ export const History: React.FC = () => {
     const [categories, setCategories] = useState<CategoryCount | null>(null)
     const [playingId, setPlayingId] = useState<string | null>(null)
     const [audioLoading, setAudioLoading] = useState<string | null>(null)
+    const [recordingCounts, setRecordingCounts] = useState<Record<string, number>>({})
     const audioRef = useRef<HTMLAudioElement | null>(null)
 
     const ACTIVITY_TYPE_LABELS: Record<ActivityType, { label: string; icon: any; color: string }> = {
@@ -93,6 +95,20 @@ export const History: React.FC = () => {
             const response = await api.get('/activity/history', { params })
             setActivities(response.data.activities)
             setTotalPages(response.data.pagination.pages)
+
+            // Fetch recording counts for each activity title
+            const counts: Record<string, number> = {}
+            for (const activity of response.data.activities) {
+                try {
+                    const countResponse = await api.get(
+                        `/activity/title-count/${encodeURIComponent(activity.title)}`
+                    )
+                    counts[activity.title] = countResponse.data.count
+                } catch (err) {
+                    counts[activity.title] = 0
+                }
+            }
+            setRecordingCounts(counts)
         } catch (error) {
             console.error('Error fetching activities:', error)
             toast.error('Failed to fetch history')
@@ -313,127 +329,116 @@ export const History: React.FC = () => {
                     {filteredActivities.map((activity) => {
                         const typeInfo = ACTIVITY_TYPE_LABELS[activity.activityType]
                         const Icon = typeInfo.icon
+                        const titleCount = recordingCounts[activity.title] || 0
+                        const hasRecording = activity.score !== undefined
 
                         return (
                             <div key={activity._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
-                                <div className="flex items-start justify-between mb-4">
-                                    <div className="flex-1">
-                                        <div className="flex items-center gap-3 mb-2">
-                                            <div className={`p-2 rounded-lg ${typeInfo.color}`}>
-                                                <Icon className="h-5 w-5" />
-                                            </div>
-                                            <div>
-                                                <h3 className="text-lg font-semibold text-gray-900">
-                                                    {activity.title}
-                                                </h3>
-                                                <span className={`inline-block mt-1 px-3 py-1 text-xs font-medium rounded-full ${typeInfo.color}`}>
-                                                    {typeInfo.label}
-                                                </span>
-                                            </div>
+                                {/* Title Section */}
+                                <div className="mb-4">
+                                    <div className="flex items-center gap-3 mb-2">
+                                        <div className={`p-2 rounded-lg ${typeInfo.color}`}>
+                                            <Icon className="h-5 w-5" />
                                         </div>
-
-                                        {activity.description && (
-                                            <p className="text-sm text-gray-600 mt-2">
-                                                {activity.description}
-                                            </p>
-                                        )}
-
-                                        <div className="flex flex-wrap items-center gap-4 text-sm text-gray-600 mt-3">
-                                            <div className="flex items-center gap-1">
-                                                <Calendar className="h-4 w-4" />
-                                                {format(new Date(activity.createdAt), 'MMM dd, yyyy HH:mm')}
-                                            </div>
-                                            <div className="flex items-center gap-1">
-                                                <Clock className="h-4 w-4" />
-                                                {formatDuration(activity.duration)}
-                                            </div>
+                                        <div>
+                                            <h3 className="text-lg font-semibold text-gray-900">
+                                                {activity.title}
+                                            </h3>
+                                            <span className={`inline-block mt-1 px-3 py-1 text-xs font-medium rounded-full ${typeInfo.color}`}>
+                                                {typeInfo.label}
+                                            </span>
                                         </div>
                                     </div>
-
-                                    {activity.score !== undefined && (
-                                        <div className={`px-4 py-2 rounded-lg font-bold text-lg ${getScoreBadge(activity.score)}`}>
-                                            {activity.score}%
-                                        </div>
-                                    )}
                                 </div>
 
-                                {/* Score Breakdown */}
-                                {(activity.score !== undefined || activity.accuracy !== undefined || activity.fluency !== undefined) && (
-                                    <div className="grid grid-cols-3 gap-3 mb-4">
-                                        {activity.score !== undefined && (
-                                            <div className="bg-gray-50 p-3 rounded-lg text-center">
-                                                <div className={`text-lg font-bold ${getScoreColor(activity.score)}`}>
-                                                    {activity.score}%
-                                                </div>
-                                                <div className="text-xs text-gray-600">Score</div>
-                                            </div>
-                                        )}
-                                        {activity.accuracy !== undefined && (
-                                            <div className="bg-gray-50 p-3 rounded-lg text-center">
-                                                <div className={`text-lg font-bold ${getScoreColor(activity.accuracy)}`}>
-                                                    {activity.accuracy}%
-                                                </div>
-                                                <div className="text-xs text-gray-600">Accuracy</div>
-                                            </div>
-                                        )}
-                                        {activity.fluency !== undefined && (
-                                            <div className="bg-gray-50 p-3 rounded-lg text-center">
-                                                <div className={`text-lg font-bold ${getScoreColor(activity.fluency)}`}>
-                                                    {activity.fluency}%
-                                                </div>
-                                                <div className="text-xs text-gray-600">Fluency</div>
-                                            </div>
-                                        )}
-                                    </div>
-                                )}
-
-                                {/* Text Content Preview */}
+                                {/* Text Content (Always Show) */}
                                 {activity.textContent && (
-                                    <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                                        <p className="text-xs font-medium text-blue-900 mb-2">Text Content:</p>
-                                        <p className="text-sm text-blue-800 line-clamp-3">
+                                    <div className="mb-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                                        <p className="text-xs font-medium text-blue-900 mb-2">📖 Text Content:</p>
+                                        <p className="text-sm text-blue-800 leading-relaxed">
                                             {activity.textContent}
                                         </p>
                                     </div>
                                 )}
 
-                                {/* Transcript */}
-                                {activity.transcript && (
-                                    <div className="mb-4 p-3 bg-gray-50 rounded-lg border border-gray-200">
-                                        <p className="text-xs font-medium text-gray-700 mb-2">Your Transcript:</p>
-                                        <p className="text-sm text-gray-700 line-clamp-2">
-                                            {activity.transcript}
-                                        </p>
-                                    </div>
-                                )}
+                                {/* Recording Details (Only if has recording) */}
+                                {hasRecording && (
+                                    <>
+                                        {/* Marks, Date, Recording Count */}
+                                        <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                                            <div className="grid grid-cols-3 gap-4">
+                                                {/* Score/Marks */}
+                                                <div className="text-center">
+                                                    <div className={`text-2xl font-bold ${getScoreColor(activity.score)}`}>
+                                                        {activity.score}%
+                                                    </div>
+                                                    <div className="text-xs text-gray-600 mt-1">Marks</div>
+                                                </div>
 
-                                {/* Feedback */}
-                                {activity.feedback && (
-                                    <div className="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-                                        <p className="text-xs font-medium text-yellow-900 mb-2">AI Feedback:</p>
-                                        <p className="text-sm text-yellow-800 line-clamp-2">
-                                            {activity.feedback}
-                                        </p>
-                                    </div>
-                                )}
+                                                {/* Date & Time */}
+                                                <div className="text-center border-l border-r border-gray-300">
+                                                    <div className="text-sm font-semibold text-gray-900">
+                                                        {format(new Date(activity.createdAt), 'MMM dd, yyyy')}
+                                                    </div>
+                                                    <div className="text-xs text-gray-600 mt-1">
+                                                        {format(new Date(activity.createdAt), 'HH:mm')}
+                                                    </div>
+                                                </div>
 
-                                {/* Action Buttons */}
-                                <div className="flex gap-2 pt-4 border-t border-gray-200">
-                                    <button
-                                        onClick={() => playAudio(activity._id)}
-                                        disabled={audioLoading === activity._id}
-                                        className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-                                    >
-                                        {audioLoading === activity._id ? (
-                                            <Loader className="h-4 w-4 animate-spin" />
-                                        ) : playingId === activity._id ? (
-                                            <Pause className="h-4 w-4" />
-                                        ) : (
-                                            <Play className="h-4 w-4" />
+                                                {/* Number of Times Recording */}
+                                                <div className="text-center">
+                                                    <div className="text-2xl font-bold text-purple-600 flex items-center justify-center gap-1">
+                                                        <Repeat2 className="h-5 w-5" />
+                                                        {titleCount}
+                                                    </div>
+                                                    <div className="text-xs text-gray-600 mt-1">
+                                                        {titleCount === 1 ? 'Recording' : 'Recordings'}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Score Breakdown */}
+                                        {(activity.accuracy !== undefined || activity.fluency !== undefined) && (
+                                            <div className="grid grid-cols-2 gap-3 mb-4">
+                                                {activity.accuracy !== undefined && (
+                                                    <div className="bg-gray-50 p-3 rounded-lg text-center">
+                                                        <div className={`text-lg font-bold ${getScoreColor(activity.accuracy)}`}>
+                                                            {activity.accuracy}%
+                                                        </div>
+                                                        <div className="text-xs text-gray-600">Accuracy</div>
+                                                    </div>
+                                                )}
+                                                {activity.fluency !== undefined && (
+                                                    <div className="bg-gray-50 p-3 rounded-lg text-center">
+                                                        <div className={`text-lg font-bold ${getScoreColor(activity.fluency)}`}>
+                                                            {activity.fluency}%
+                                                        </div>
+                                                        <div className="text-xs text-gray-600">Fluency</div>
+                                                    </div>
+                                                )}
+                                            </div>
                                         )}
-                                        {playingId === activity._id ? 'Playing...' : 'Play Recording'}
-                                    </button>
-                                </div>
+
+                                        {/* Play Recording Button - MOST IMPORTANT */}
+                                        <div className="flex gap-2 pt-4 border-t border-gray-200">
+                                            <button
+                                                onClick={() => playAudio(activity._id)}
+                                                disabled={audioLoading === activity._id}
+                                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
+                                            >
+                                                {audioLoading === activity._id ? (
+                                                    <Loader className="h-4 w-4 animate-spin" />
+                                                ) : playingId === activity._id ? (
+                                                    <Pause className="h-4 w-4" />
+                                                ) : (
+                                                    <Play className="h-4 w-4" />
+                                                )}
+                                                {playingId === activity._id ? 'Playing...' : '🎤 Play Recording'}
+                                            </button>
+                                        </div>
+                                    </>
+                                )}
                             </div>
                         )
                     })}
