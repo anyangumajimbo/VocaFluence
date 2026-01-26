@@ -4,6 +4,7 @@ import multer from 'multer';
 import { authMiddleware } from '../middleware/auth';
 import { PracticeSession } from '../models/PracticeSession';
 import { Script } from '../models/Script';
+import { ActivityLog } from '../models/ActivityLog';
 import AIService from '../services/aiService';
 
 const router: Router = express.Router();
@@ -169,6 +170,26 @@ router.post('/submit', [
 
             await session.save();
             console.log('Practice session saved successfully');
+
+            // Also save to ActivityLog for unified history
+            const activityLog = new ActivityLog({
+                userId,
+                activityType: 'practice',
+                title: script.title,
+                description: `Practice session for ${script.title}`,
+                textContent: script.textContent,
+                audioBuffer: audioFile.buffer, // Store the actual audio file
+                score: feedbackResult.score,
+                accuracy: feedbackResult.accuracy,
+                fluency: feedbackResult.fluency,
+                duration: duration,
+                transcript: transcriptionResult.transcript,
+                feedback: feedbackResult.feedbackComments.join(' '),
+                relatedId: scriptId
+            });
+
+            await activityLog.save();
+            console.log('Activity log saved successfully');
 
             res.json({
                 message: 'Practice session completed successfully.',
