@@ -36,16 +36,31 @@ app.set('trust proxy', 1);
 
 // Security middleware
 app.use(helmet());
+
+// CORS configuration - accept localhost, Vercel main domain, and all Vercel preview URLs
+const corsOrigins = [
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
+    'http://192.168.0.102:5173',
+    'https://voca-fluence-client.vercel.app',
+    'https://vocafluence-client.vercel.app',
+];
+
 app.use(cors({
-    origin: [
-        'http://localhost:5173',
-        'http://127.0.0.1:5173',
-        'http://192.168.0.102:5173',
-        'https://voca-fluence-client.vercel.app',
-        'https://vocafluence-client.vercel.app',
-        'https://voca-fluence-client-git-main-anyangu-majimbos-projects.vercel.app',
-        'https://voca-fluence-client-lbyzqwlrl-anyangu-majimbos-projects.vercel.app'
-    ],
+    origin: (origin, callback) => {
+        // Allow requests with no origin (like mobile apps or Postman)
+        if (!origin) return callback(null, true);
+        
+        // Check if origin is in allowed list
+        if (corsOrigins.includes(origin)) {
+            callback(null, true);
+        } else if (origin.includes('vercel.app')) {
+            // Allow all Vercel preview and production URLs
+            callback(null, true);
+        } else {
+            callback(new Error('Not allowed by CORS'));
+        }
+    },
     credentials: true
 }));
 
