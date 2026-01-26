@@ -24,6 +24,20 @@ interface Script {
     referenceAudioURL?: string
 }
 
+interface WordComparison {
+    originalWord: string;
+    spokenWord: string;
+    isCorrect: boolean;
+    position: number;
+}
+
+interface PronunciationAnalysis {
+    wordComparisons: WordComparison[];
+    correctWords: number;
+    totalWords: number;
+    mistakeCount: number;
+}
+
 interface PracticeResult {
     id: string;
     score: number;
@@ -34,6 +48,7 @@ interface PracticeResult {
     feedback: string;
     transcript?: string;
     originalScript?: string;
+    pronunciationAnalysis?: PronunciationAnalysis;
 }
 
 export const Practice: React.FC = () => {
@@ -95,7 +110,7 @@ export const Practice: React.FC = () => {
     const startRecording = async () => {
         try {
             const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            
+
             // Use MP3 format which is well-supported by OpenAI Whisper
             const mediaRecorder = new MediaRecorder(stream, {
                 mimeType: 'audio/webm;codecs=opus'
@@ -194,6 +209,50 @@ export const Practice: React.FC = () => {
         if (score >= 60) return 'text-warning-600'
         return 'text-error-600'
     }
+
+    // Component to render pronunciation analysis with color coding
+    const PronunciationDisplay: React.FC<{ analysis: PronunciationAnalysis }> = ({ analysis }) => {
+        return (
+            <div className="space-y-4">
+                <div>
+                    <h3 className="font-medium text-gray-900 mb-2">Your Speech (Pronunciation Analysis)</h3>
+                    <div className="bg-gray-50 p-4 rounded-lg text-sm leading-relaxed">
+                        {analysis.wordComparisons.map((comparison, index) => (
+                            <span key={index} className="inline-block mr-1">
+                                {comparison.isCorrect ? (
+                                    // Correct word - normal color
+                                    <span className="text-gray-800">{comparison.spokenWord}</span>
+                                ) : (
+                                    // Incorrect word - red for mispronounced, green for correction
+                                    <span className="inline-block">
+                                        <span className="text-red-600 line-through font-medium">
+                                            {comparison.spokenWord}
+                                        </span>
+                                        <span className="text-green-600 font-medium ml-1">
+                                            {comparison.originalWord}
+                                        </span>
+                                    </span>
+                                )}
+                                {index < analysis.wordComparisons.length - 1 && ' '}
+                            </span>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Statistics */}
+                <div className="grid grid-cols-2 gap-4">
+                    <div className="bg-blue-50 p-3 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-blue-600">{analysis.totalWords}</div>
+                        <div className="text-sm text-gray-600">Total Words</div>
+                    </div>
+                    <div className="bg-red-50 p-3 rounded-lg text-center">
+                        <div className="text-2xl font-bold text-red-600">{analysis.mistakeCount}</div>
+                        <div className="text-sm text-gray-600">Mistakes</div>
+                    </div>
+                </div>
+            </div>
+        );
+    };
 
     if (loading) {
         return (
@@ -379,19 +438,16 @@ export const Practice: React.FC = () => {
                         </div>
                     </div>
 
-                    {/* Transcript Comparison */}
-                    {practiceResult.transcript && practiceResult.originalScript && (
-                        <div className="space-y-4 mb-6">
-                            <div>
-                                <h3 className="font-medium text-gray-900 mb-2">Original Script</h3>
-                                <div className="bg-blue-50 p-3 rounded-lg text-sm">
-                                    {practiceResult.originalScript}
-                                </div>
-                            </div>
-
+                    {/* Pronunciation Analysis */}
+                    {practiceResult.pronunciationAnalysis ? (
+                        <div className="mb-6">
+                            <PronunciationDisplay analysis={practiceResult.pronunciationAnalysis} />
+                        </div>
+                    ) : practiceResult.transcript && (
+                        <div className="mb-6">
                             <div>
                                 <h3 className="font-medium text-gray-900 mb-2">Your Speech (Transcribed)</h3>
-                                <div className="bg-green-50 p-3 rounded-lg text-sm">
+                                <div className="bg-gray-50 p-3 rounded-lg text-sm">
                                     {practiceResult.transcript}
                                 </div>
                             </div>

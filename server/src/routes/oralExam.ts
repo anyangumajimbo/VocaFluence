@@ -4,8 +4,7 @@ import multer from 'multer';
 import fs from 'fs-extra';
 import path from 'path';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-import delfB2Questions from '../data/delfB2Questions';
-import OralExamSession from '../models/OralExamSession';
+  import OralExamSession from '../models/OralExamSession';
 import mongoose from 'mongoose';
 import ffmpeg from 'fluent-ffmpeg';
 import stream from 'stream';
@@ -75,16 +74,46 @@ router.post('/session', async (req: Request, res: Response, next: NextFunction) 
     try {
         // Create a proper ObjectId for the user
         const userId = new mongoose.Types.ObjectId();
-        const question = delfB2Questions[Math.floor(Math.random() * delfB2Questions.length)];
+        
+        // Get topic data from frontend request
+        const { questionTitle, questionText, source, topicId } = req.body;
+        
+        // Use the topic title or create a formatted question
+        const question = questionTitle || `Topic: ${topicId}`;
+        
+        // Create system prompt with the actual topic content
+        const systemPromptWithTopic = `
+Vous êtes examinateur officiel du DELF B2. Vous suivez strictement la structure de l'épreuve orale :
+
+SUJET DE L'ÉTUDIANT:
+${questionTitle || 'N/A'}
+
+CONTENU DU SUJET:
+${questionText || 'N/A'}
+
+Votre rôle:
+1. Accueil et explication rapide du déroulement (en français, 1-2 phrases).
+2. Invitez l'étudiant à présenter et discuter du sujet donné (en français).
+3. Posez des questions de relance pertinentes sur le sujet, jouez le rôle d'examinateur officiel, restez neutre et professionnel.
+4. À la fin, fournissez une évaluation structurée :
+   - Notez sur 5 : Cohérence, Richesse du vocabulaire, Correction grammaticale, Prononciation.
+   - Donnez 2 points forts et 2 axes d'amélioration.
+   - Terminez par un commentaire global.
+
+Toutes vos interventions sont en français. Restez dans votre rôle d'examinateur.
+`;
+        
         const messages: Message[] = [
-            { role: 'system', content: DELF_B2_SYSTEM_PROMPT },
-            { role: 'user', content: `Sujet de l'examen : ${question}` }
+            { role: 'system', content: systemPromptWithTopic },
+            { role: 'user', content: `Sujet de l'examen : ${questionTitle || 'Topic selected'}` }
         ];
+        
         // Prepare messages for OpenAI
         const openAIMessages: ChatCompletionMessageParam[] = messages.map(m => ({
             role: m.role,
             content: m.content
         }));
+        
         const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
         const completion = await openai.chat.completions.create({
             model: 'gpt-4o',
@@ -92,15 +121,20 @@ router.post('/session', async (req: Request, res: Response, next: NextFunction) 
             temperature: 0.7,
             max_tokens: 512
         });
+        
         const aiMessage = completion.choices[0]?.message?.content || '';
         messages.push({ role: 'assistant', content: aiMessage });
+        
         // Save session
         const session = new OralExamSession({
             user: userId,
             question,
+            topicId: topicId || null,
             messages
         });
+        
         await session.save();
+        
         return res.status(201).json({
             sessionId: session._id,
             question,

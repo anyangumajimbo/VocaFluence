@@ -74,7 +74,7 @@
 
    Create `.env` file in the `server` directory:
    ```env
-   MONGO_URI=mongodb://localhost:27017/vocfluence
+   _URI=mongodb://localhost:27017/vocfluence
    JWT_SECRET=your_super_secure_jwt_secret_key_here
    PORT=5000
    NODE_ENV=development
@@ -92,7 +92,7 @@
 
    Create `.env.production` file in the `client` directory:
    ```env
-   VITE_API_URL=https://your-backend-api-url.onrender.com
+   VITE_API_URLMONGO=https://your-backend-api-url.onrender.com
    ```
 
 4. **Start Development Servers**
