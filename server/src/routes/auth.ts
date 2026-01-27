@@ -5,6 +5,7 @@ import { body, validationResult } from 'express-validator';
 import { User } from '../models/User';
 import { authMiddleware } from '../middleware/auth';
 import logger from '../utils/logger';
+import EmailService from '../services/emailService';
 
 const router: Router = express.Router();
 
@@ -191,21 +192,75 @@ router.post('/forgot-password', [
         // Find user
         const user = await User.findOne({ email });
         if (!user) {
-            res.status(404).json({ message: 'User not found.' });
+            // For security, don't reveal that the user doesn't exist
+            // Still return success to prevent email enumeration
+            res.json({ message: 'If an account exists with this email, password reset instructions have been sent.' });
             return;
         }
 
-        // Generate reset token
+        // Generate reset token (1 hour expiration)
         const resetToken = jwt.sign(
             { userId: user._id },
             process.env.JWT_SECRET!,
             { expiresIn: '1h' }
         );
 
+        // Send password reset email
+        const emailSent = await EmailService.sendPasswordResetEmail(
+            user.email,
+            resetToken,
+            user.firstName
+        );
+
+        if (!emailSent) {
+            logger.error('Failed to send password reset email to:', user.email);
+            // Still return success to user for security
+        }
+
+        // Never return the token to clients
         res.json({
-            message: 'Password reset email sent.',
-            resetToken
+            message: 'If an account exists with this email, password reset instructions have been sent.'
         });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Reset password
+router.post('/reset-password', [
+    body('token').notEmpty().withMessage('Reset token is required'),
+    body('newPassword').isLength({ min: 6 }).withMessage('Password must be at least 6 characters')
+], async (req: Request, res: Response, next: NextFunction) => {
+    try {
+        const errors = validationResult(req);
+        if (!errors.isEmpty()) {
+            res.status(400).json({ errors: errors.array() });
+            return;
+        }
+
+        const { token, newPassword } = req.body;
+
+        // Verify token
+        let decoded: any;
+        try {
+            decoded = jwt.verify(token, process.env.JWT_SECRET!);
+        } catch (err) {
+            res.status(400).json({ message: 'Invalid or expired reset token.' });
+            return;
+        }
+
+        // Find user
+        const user = await User.findById(decoded.userId);
+        if (!user) {
+            res.status(404).json({ message: 'User not found.' });
+            return;
+        }
+
+        // Update password (pre-save hook will hash it)
+        user.password = newPassword;
+        await user.save();
+
+        res.json({ message: 'Password reset successfully.' });
     } catch (error) {
         next(error);
     }

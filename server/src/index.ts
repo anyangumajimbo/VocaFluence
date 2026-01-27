@@ -25,6 +25,7 @@ import { authMiddleware } from './middleware/auth';
 // Import services
 import { initializeReminderService } from './services/reminderService';
 import AIService from './services/aiService';
+import EmailService from './services/emailService';
 
 // Load environment variables
 dotenv.config();
@@ -148,6 +149,17 @@ const initializeAIService = () => {
     }
 };
 
+// Initialize Email Service
+const initializeEmailService = () => {
+    try {
+        EmailService.initialize();
+        logger.info('✅ Email Service initialized successfully');
+    } catch (error) {
+        logger.error('❌ Email Service initialization error:', error);
+        logger.warn('⚠️  Email functionality will not be available. Please configure email settings in environment variables.');
+    }
+};
+
 // Start server
 const startServer = async () => {
     try {
@@ -156,6 +168,7 @@ const startServer = async () => {
         // Initialize services
         initializeReminderService();
         initializeAIService();
+        initializeEmailService();
 
         app.listen(PORT, () => {
             logger.info(`🚀 Server running on port ${PORT}`);

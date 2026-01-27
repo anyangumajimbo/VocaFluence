@@ -5,6 +5,8 @@ import toast from 'react-hot-toast'
 interface User {
     id: string
     email: string
+    firstName?: string
+    lastName?: string
     role: 'student' | 'admin'
     preferredLanguage: 'english' | 'french' | 'swahili'
     schedule: {

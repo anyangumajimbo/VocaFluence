@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { usersAPI } from '../services/api'
+import { api } from '../services/api'
 import {
     BarChart3,
     Mic,
@@ -11,16 +11,32 @@ import {
     Clock,
     Award
 } from 'lucide-react'
-import { format } from 'date-fns'
+import { format, startOfDay, startOfWeek } from 'date-fns'
+
+interface ActivityStats {
+    totalActivities: number
+    totalDuration: number
+    avgScore?: number
+    avgAccuracy?: number
+    avgFluency?: number
+}
+
+interface Activity {
+    _id: string
+    title: string
+    activityType: string
+    score?: number
+    accuracy?: number
+    fluency?: number
+    createdAt: string
+}
 
 interface DashboardData {
-    recentSessions: any[]
+    recentActivities: Activity[]
     totalSessions: number
     avgScore: number
     avgAccuracy: number
-    avgFluency: number
     todaySessions: number
-    weeklySessions: number
     weeklyAvg: number
 }
 
@@ -32,8 +48,39 @@ export const Dashboard: React.FC = () => {
     useEffect(() => {
         const fetchDashboardData = async () => {
             try {
-                const response = await usersAPI.getDashboard()
-                setDashboardData(response.data.dashboard)
+                // Fetch overall stats
+                const statsResponse = await api.get('/activity/stats')
+                const stats: ActivityStats = statsResponse.data.stats
+
+                // Fetch recent activities
+                const activitiesResponse = await api.get('/activity/history', {
+                    params: { limit: 5, skip: 0 }
+                })
+                const recentActivities: Activity[] = activitiesResponse.data.activities
+
+                // Calculate today's sessions
+                const today = startOfDay(new Date()).getTime()
+                const todaySessions = recentActivities.filter(
+                    (activity) => new Date(activity.createdAt).getTime() >= today
+                ).length
+
+                // Calculate weekly average
+                const weekStart = startOfWeek(new Date()).getTime()
+                const weeklyActivities = recentActivities.filter(
+                    (activity) => new Date(activity.createdAt).getTime() >= weekStart
+                )
+                const weeklyAvg = weeklyActivities.length > 0
+                    ? weeklyActivities.reduce((sum, activity) => sum + (activity.score || 0), 0) / weeklyActivities.length
+                    : 0
+
+                setDashboardData({
+                    recentActivities,
+                    totalSessions: stats.totalActivities || 0,
+                    avgScore: stats.avgScore || 0,
+                    avgAccuracy: stats.avgAccuracy || 0,
+                    todaySessions,
+                    weeklyAvg: Math.round(weeklyAvg)
+                })
             } catch (error) {
                 console.error('Error fetching dashboard data:', error)
             } finally {
@@ -57,7 +104,7 @@ export const Dashboard: React.FC = () => {
             {/* Header */}
             <div>
                 <h1 className="text-2xl font-bold text-gray-900">
-                    Welcome back, {user?.email}!
+                    Welcome back, {user?.firstName || user?.email?.split('@')[0]}!
                 </h1>
                 <p className="text-gray-600">
                     Ready to improve your {user?.preferredLanguage} fluency?
@@ -200,7 +247,7 @@ export const Dashboard: React.FC = () => {
             {/* Recent Sessions */}
             <div className="card">
                 <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold text-gray-900">Recent Sessions</h2>
+                    <h2 className="text-lg font-semibold text-gray-900">Recent Activities</h2>
                     <Link
                         to="/history"
                         className="text-sm font-medium text-primary-600 hover:text-primary-500"
@@ -209,11 +256,11 @@ export const Dashboard: React.FC = () => {
                     </Link>
                 </div>
 
-                {dashboardData?.recentSessions && dashboardData.recentSessions.length > 0 ? (
+                {dashboardData?.recentActivities && dashboardData.recentActivities.length > 0 ? (
                     <div className="space-y-4">
-                        {dashboardData.recentSessions.map((session: any) => (
+                        {dashboardData.recentActivities.map((activity: Activity) => (
                             <div
-                                key={session._id}
+                                key={activity._id}
                                 className="flex items-center justify-between p-4 bg-gray-50 rounded-lg"
                             >
                                 <div className="flex items-center">
@@ -222,19 +269,19 @@ export const Dashboard: React.FC = () => {
                                     </div>
                                     <div className="ml-4">
                                         <p className="text-sm font-medium text-gray-900">
-                                            {session.scriptId?.title || 'Unknown Script'}
+                                            {activity.title || 'Unknown Activity'}
                                         </p>
                                         <p className="text-xs text-gray-500">
-                                            {format(new Date(session.timestamp), 'MMM dd, yyyy')}
+                                            {format(new Date(activity.createdAt), 'MMM dd, yyyy')}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="text-right">
                                     <p className="text-sm font-semibold text-gray-900">
-                                        {session.score}%
+                                        {activity.score ? Math.round(activity.score) : 0}%
                                     </p>
                                     <p className="text-xs text-gray-500">
-                                        {session.accuracy}% accuracy
+                                        {activity.accuracy ? Math.round(activity.accuracy) : 0}% accuracy
                                     </p>
                                 </div>
                             </div>
