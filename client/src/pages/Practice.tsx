@@ -11,7 +11,10 @@ import {
     CheckCircle,
     AlertCircle,
     Clock,
-    Target
+    Target,
+    ZoomIn,
+    ZoomOut,
+    ArrowLeft
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -59,16 +62,19 @@ export const Practice: React.FC = () => {
     const [isRecording, setIsRecording] = useState(false)
     const [isPlaying, setIsPlaying] = useState(false)
     const [recordingTime, setRecordingTime] = useState(0)
+    const [finalRecordingTime, setFinalRecordingTime] = useState(0)
     const [audioBlob, setAudioBlob] = useState<Blob | null>(null)
     const [audioURL, setAudioURL] = useState<string>('')
     const [isProcessing, setIsProcessing] = useState(false)
     const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null)
     const [loading, setLoading] = useState(true)
+    const [fontSize, setFontSize] = useState(16) // Font size in pixels
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const audioChunksRef = useRef<Blob[]>([])
     const timerRef = useRef<NodeJS.Timeout | null>(null)
     const audioRef = useRef<HTMLAudioElement | null>(null)
+    const scriptTopRef = useRef<HTMLDivElement | null>(null)
 
     useEffect(() => {
         fetchScripts()
@@ -144,6 +150,7 @@ export const Practice: React.FC = () => {
         if (mediaRecorderRef.current && isRecording) {
             mediaRecorderRef.current.stop()
             setIsRecording(false)
+            setFinalRecordingTime(recordingTime) // Save the final time
             toast.success('Recording stopped')
         }
     }
@@ -272,8 +279,8 @@ export const Practice: React.FC = () => {
                 </p>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                {/* Script Selection */}
+            {!selectedScript ? (
+                /* Script Selection Grid - Show all scripts */
                 <div className="card">
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Script</h2>
 
@@ -282,10 +289,7 @@ export const Practice: React.FC = () => {
                             {scripts.map((script) => (
                                 <div
                                     key={script._id}
-                                    className={`p-4 border rounded-lg cursor-pointer transition-colors ${selectedScript?._id === script._id
-                                        ? 'border-primary-500 bg-primary-50'
-                                        : 'border-gray-200 hover:border-gray-300'
-                                        }`}
+                                    className="p-4 border rounded-lg cursor-pointer transition-colors border-gray-200 hover:border-primary-300 hover:bg-primary-50"
                                     onClick={() => setSelectedScript(script)}
                                 >
                                     <div className="flex items-center justify-between">
@@ -295,9 +299,7 @@ export const Practice: React.FC = () => {
                                                 {script.language} • {script.difficulty}
                                             </p>
                                         </div>
-                                        {selectedScript?._id === script._id && (
-                                            <CheckCircle className="h-5 w-5 text-primary-600" />
-                                        )}
+                                        <CheckCircle className="h-5 w-5 text-gray-300" />
                                     </div>
                                 </div>
                             ))}
@@ -309,106 +311,174 @@ export const Practice: React.FC = () => {
                         </div>
                     )}
                 </div>
+            ) : (
+                /* Centered Script View - Show only selected script */
+                <div className="max-w-4xl mx-auto">
+                    <div className="card" ref={scriptTopRef}>
+                        {/* Back Button */}
+                        <button
+                            onClick={() => {
+                                setSelectedScript(null)
+                                setAudioBlob(null)
+                                setAudioURL('')
+                                setRecordingTime(0)
+                                setFinalRecordingTime(0)
+                            }}
+                            className="flex items-center text-gray-600 hover:text-gray-900 mb-4"
+                        >
+                            <ArrowLeft className="h-4 w-4 mr-2" />
+                            Back to script list
+                        </button>
 
-                {/* Recording Section */}
-                <div className="card">
-                    <h2 className="text-lg font-semibold text-gray-900 mb-4">Voice Recording</h2>
+                        {/* Script Title */}
+                        <div className="text-center mb-6">
+                            <h2 className="text-2xl font-bold text-gray-900">{selectedScript.title}</h2>
+                            <p className="text-sm text-gray-500 capitalize mt-1">
+                                {selectedScript.language} • {selectedScript.difficulty}
+                            </p>
+                        </div>
 
-                    {selectedScript ? (
-                        <div className="space-y-4">
-                            {/* Script Preview */}
-                            <div className="bg-gray-50 p-4 rounded-lg">
-                                <h3 className="font-medium text-gray-900 mb-2">{selectedScript.title}</h3>
-                                <p className="text-sm text-gray-600 leading-relaxed">
-                                    {selectedScript.textContent}
+                        {/* Start Recording Button - At Top */}
+                        {!isRecording && !audioBlob && (
+                            <div className="flex justify-center mb-6">
+                                <button
+                                    onClick={startRecording}
+                                    className="btn-primary flex items-center text-lg py-3 px-6"
+                                    disabled={isProcessing}
+                                >
+                                    <Mic className="h-6 w-6 mr-2" />
+                                    Start Recording
+                                </button>
+                            </div>
+                        )}
+
+                        {/* Recording Timer - Visible during and after recording */}
+                        {(isRecording || finalRecordingTime > 0) && (
+                            <div className="text-center mb-4">
+                                <div className="inline-flex items-center space-x-2 bg-primary-50 px-6 py-3 rounded-lg">
+                                    <Clock className="h-5 w-5 text-primary-600" />
+                                    <div className="text-2xl font-bold text-primary-600">
+                                        {formatTime(isRecording ? recordingTime : finalRecordingTime)}
+                                    </div>
+                                </div>
+                                <p className="text-sm text-gray-500 mt-2">
+                                    {isRecording ? 'Recording in progress...' : 'Recording duration'}
                                 </p>
                             </div>
+                        )}
 
-                            {/* Recording Controls */}
-                            <div className="flex items-center justify-center space-x-4">
-                                {!isRecording ? (
-                                    <button
-                                        onClick={startRecording}
-                                        className="btn-primary flex items-center"
-                                        disabled={isProcessing}
-                                    >
-                                        <Mic className="h-5 w-5 mr-2" />
-                                        Start Recording
-                                    </button>
-                                ) : (
-                                    <button
-                                        onClick={stopRecording}
-                                        className="btn-error flex items-center"
-                                    >
-                                        <MicOff className="h-5 w-5 mr-2" />
-                                        Stop Recording
-                                    </button>
-                                )}
+                        {/* Font Size Controls */}
+                        <div className="flex items-center justify-center space-x-4 mb-4">
+                            <button
+                                onClick={() => setFontSize(prev => Math.max(12, prev - 2))}
+                                className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                                title="Decrease font size"
+                            >
+                                <ZoomOut className="h-4 w-4" />
+                                <span>Smaller</span>
+                            </button>
+                            <span className="text-sm text-gray-600">Font Size: {fontSize}px</span>
+                            <button
+                                onClick={() => setFontSize(prev => Math.min(32, prev + 2))}
+                                className="flex items-center space-x-1 px-3 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+                                title="Increase font size"
+                            >
+                                <ZoomIn className="h-4 w-4" />
+                                <span>Larger</span>
+                            </button>
+                        </div>
+
+                        {/* Script Content with Adjustable Font */}
+                        <div className="bg-gray-50 p-6 rounded-lg mb-6 max-h-96 overflow-y-auto">
+                            <p 
+                                className="text-gray-800 leading-relaxed whitespace-pre-wrap"
+                                style={{ fontSize: `${fontSize}px`, lineHeight: 1.8 }}
+                            >
+                                {selectedScript.textContent}
+                            </p>
+                        </div>
+
+                        {/* Stop Recording Button - At Bottom */}
+                        {isRecording && (
+                            <div className="flex justify-center mb-6">
+                                <button
+                                    onClick={stopRecording}
+                                    className="btn-error flex items-center text-lg py-3 px-6 animate-pulse"
+                                >
+                                    <MicOff className="h-6 w-6 mr-2" />
+                                    Stop Recording
+                                </button>
                             </div>
+                        )}
 
-                            {/* Recording Timer */}
-                            {isRecording && (
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-primary-600">
-                                        {formatTime(recordingTime)}
-                                    </div>
-                                    <p className="text-sm text-gray-500">Recording in progress...</p>
-                                </div>
-                            )}
-
-                            {/* Audio Playback */}
-                            {audioURL && !isRecording && (
-                                <div className="space-y-3">
-                                    <div className="flex items-center justify-center space-x-2">
-                                        {!isPlaying ? (
-                                            <button
-                                                onClick={playRecording}
-                                                className="btn-secondary flex items-center"
-                                            >
-                                                <Play className="h-4 w-4 mr-1" />
-                                                Play
-                                            </button>
-                                        ) : (
-                                            <button
-                                                onClick={pauseRecording}
-                                                className="btn-secondary flex items-center"
-                                            >
-                                                <Pause className="h-4 w-4 mr-1" />
-                                                Pause
-                                            </button>
-                                        )}
-                                    </div>
-
-                                    <audio
-                                        ref={audioRef}
-                                        src={audioURL}
-                                        onEnded={() => setIsPlaying(false)}
-                                        className="w-full"
-                                    />
+                        {/* Audio Playback & Submit */}
+                        {audioURL && !isRecording && (
+                            <div className="space-y-4 border-t pt-6">
+                                <h3 className="font-semibold text-gray-900 text-center">Playback & Submit</h3>
+                                
+                                <div className="flex items-center justify-center space-x-3">
+                                    {!isPlaying ? (
+                                        <button
+                                            onClick={playRecording}
+                                            className="btn-secondary flex items-center"
+                                        >
+                                            <Play className="h-4 w-4 mr-2" />
+                                            Play Recording
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={pauseRecording}
+                                            className="btn-secondary flex items-center"
+                                        >
+                                            <Pause className="h-4 w-4 mr-2" />
+                                            Pause
+                                        </button>
+                                    )}
 
                                     <button
-                                        onClick={submitPractice}
-                                        disabled={isProcessing}
-                                        className="btn-success w-full flex items-center justify-center"
+                                        onClick={() => {
+                                            setAudioBlob(null)
+                                            setAudioURL('')
+                                            setRecordingTime(0)
+                                            setFinalRecordingTime(0)
+                                            // Scroll to top of script card
+                                            scriptTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                                        }}
+                                        className="btn-secondary"
                                     >
-                                        {isProcessing ? (
-                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
-                                        ) : (
-                                            <Upload className="h-5 w-5 mr-2" />
-                                        )}
-                                        {isProcessing ? 'Processing...' : 'Submit Practice'}
+                                        Re-record
                                     </button>
                                 </div>
-                            )}
-                        </div>
-                    ) : (
-                        <div className="text-center py-8">
-                            <Mic className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-500">Select a script to start practicing</p>
-                        </div>
-                    )}
+
+                                <audio
+                                    ref={audioRef}
+                                    src={audioURL}
+                                    onEnded={() => setIsPlaying(false)}
+                                    className="w-full"
+                                />
+
+                                <button
+                                    onClick={submitPractice}
+                                    disabled={isProcessing}
+                                    className="btn-success w-full flex items-center justify-center text-lg py-3"
+                                >
+                                    {isProcessing ? (
+                                        <>
+                                            <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white mr-2"></div>
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Upload className="h-5 w-5 mr-2" />
+                                            Submit Practice
+                                        </>
+                                    )}
+                                </button>
+                            </div>
+                        )}
+                    </div>
                 </div>
-            </div>
+            )}
 
             {/* Practice Results */}
             {practiceResult && (
