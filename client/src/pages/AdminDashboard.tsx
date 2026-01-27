@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { api } from '../services/api'
 import {
     BarChart3,
     FileText,
@@ -9,18 +10,34 @@ import {
     Globe,
     Users
 } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface DashboardStats {
     totalUsers: number
     totalSessions: number
     avgScore: number
     activeUsers: number
-    languageStats: any[]
-    recentActivity: any[]
+}
+
+interface LanguageDistribution {
+    language: string
+    users: number
+    sessions: number
+}
+
+interface RecentActivityItem {
+    type: string
+    user: string
+    firstName?: string
+    lastName?: string
+    description: string
+    time: string
 }
 
 export const AdminDashboard: React.FC = () => {
     const [stats, setStats] = useState<DashboardStats | null>(null)
+    const [languageStats, setLanguageStats] = useState<LanguageDistribution[]>([])
+    const [recentActivity, setRecentActivity] = useState<RecentActivityItem[]>([])
     const [loading, setLoading] = useState(true)
     const navigate = useNavigate()
 
@@ -30,30 +47,13 @@ export const AdminDashboard: React.FC = () => {
 
     const fetchDashboardStats = async () => {
         try {
-            // In a real app, you'd have a dedicated admin stats endpoint
-            // For now, we'll simulate the data
-            const mockStats: DashboardStats = {
-                totalUsers: 156,
-                totalSessions: 1247,
-                avgScore: 78.5,
-                activeUsers: 89,
-                languageStats: [
-                    { language: 'english', users: 89, sessions: 567 },
-                    { language: 'french', users: 34, sessions: 234 },
-                    { language: 'swahili', users: 33, sessions: 446 }
-                ],
-                recentActivity: [
-                    { type: 'practice', user: 'john@example.com', script: 'Basic Greetings', score: 85, time: '2 hours ago' },
-                    { type: 'practice', user: 'marie@example.com', script: 'Weather Report', score: 92, time: '3 hours ago' },
-                    { type: 'practice', user: 'ahmed@example.com', script: 'Daily Routine', score: 76, time: '4 hours ago' },
-                    { type: 'register', user: 'sarah@example.com', time: '5 hours ago' },
-                    { type: 'script_upload', user: 'admin@vocfluence.com', script: 'Business Meeting', time: '6 hours ago' }
-                ]
-            }
-
-            setStats(mockStats)
+            const response = await api.get('/users/admin/dashboard')
+            setStats(response.data.stats)
+            setLanguageStats(response.data.languageDistribution || [])
+            setRecentActivity(response.data.recentActivity || [])
         } catch (error) {
             console.error('Error fetching dashboard stats:', error)
+            toast.error('Failed to load dashboard data')
         } finally {
             setLoading(false)
         }
@@ -176,24 +176,31 @@ export const AdminDashboard: React.FC = () => {
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Language Distribution</h2>
 
                     <div className="space-y-4">
-                        {stats?.languageStats.map((stat) => (
-                            <div key={stat.language} className="flex items-center justify-between">
-                                <div className="flex items-center">
-                                    <Globe className="h-5 w-5 text-gray-400 mr-3" />
-                                    <span className="font-medium text-gray-900 capitalize">
-                                        {stat.language}
-                                    </span>
-                                </div>
-                                <div className="text-right">
-                                    <div className="text-sm font-medium text-gray-900">
-                                        {stat.users} users
+                        {languageStats.length > 0 ? (
+                            languageStats.map((stat) => (
+                                <div key={stat.language} className="flex items-center justify-between">
+                                    <div className="flex items-center">
+                                        <Globe className="h-5 w-5 text-gray-400 mr-3" />
+                                        <span className="font-medium text-gray-900 capitalize">
+                                            {stat.language === 'english' && '🇺🇸'}
+                                            {stat.language === 'french' && '🇫🇷'}
+                                            {stat.language === 'swahili' && '🇹🇿'}
+                                            {' '}{stat.language}
+                                        </span>
                                     </div>
-                                    <div className="text-xs text-gray-500">
-                                        {stat.sessions} sessions
+                                    <div className="text-right">
+                                        <div className="text-sm font-medium text-gray-900">
+                                            {stat.users} users
+                                        </div>
+                                        <div className="text-xs text-gray-500">
+                                            {stat.sessions} sessions
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        ) : (
+                            <p className="text-gray-500 text-sm">No language data available</p>
+                        )}
                     </div>
                 </div>
 
@@ -202,35 +209,33 @@ export const AdminDashboard: React.FC = () => {
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Recent Activity</h2>
 
                     <div className="space-y-3">
-                        {stats?.recentActivity.map((activity, index) => (
-                            <div
-                                key={index}
-                                className={`flex items-center p-3 rounded-lg border ${getActivityColor(activity.type)}`}
-                            >
-                                <div className="flex-shrink-0 mr-3">
-                                    {getActivityIcon(activity.type)}
-                                </div>
+                        {recentActivity.length > 0 ? (
+                            recentActivity.map((activity, index) => (
+                                <div
+                                    key={index}
+                                    className={`flex items-center p-3 rounded-lg border ${getActivityColor(activity.type)}`}
+                                >
+                                    <div className="flex-shrink-0 mr-3">
+                                        {getActivityIcon(activity.type)}
+                                    </div>
 
-                                <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-gray-900">
-                                        {activity.user}
-                                    </p>
-                                    <p className="text-xs text-gray-500">
-                                        {activity.type === 'practice' && activity.script && (
-                                            <>Practiced "{activity.script}" • Score: {activity.score}%</>
-                                        )}
-                                        {activity.type === 'register' && 'Registered new account'}
-                                        {activity.type === 'script_upload' && activity.script && (
-                                            <>Uploaded "{activity.script}"</>
-                                        )}
-                                    </p>
-                                </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="text-sm font-medium text-gray-900">
+                                            {activity.user}
+                                        </p>
+                                        <p className="text-xs text-gray-500">
+                                            {activity.description}
+                                        </p>
+                                    </div>
 
-                                <div className="text-xs text-gray-500">
-                                    {activity.time}
+                                    <div className="flex-shrink-0 ml-3 text-xs text-gray-500">
+                                        {activity.time}
+                                    </div>
                                 </div>
-                            </div>
-                        ))}
+                            ))
+                        ) : (
+                            <p className="text-gray-500 text-sm">No recent activity</p>
+                        )}
                     </div>
                 </div>
             </div>
@@ -263,69 +268,6 @@ export const AdminDashboard: React.FC = () => {
                         <BarChart3 className="h-5 w-5 mr-2" />
                         View Analytics
                     </button>
-                </div>
-            </div>
-
-            {/* System Health */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="card">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">System Status</h3>
-
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Database</span>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">
-                                Online
-                            </span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">AI Service</span>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">
-                                Online
-                            </span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Email Service</span>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-warning-100 text-warning-800">
-                                Warning
-                            </span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">File Storage</span>
-                            <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-success-100 text-success-800">
-                                Online
-                            </span>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="card">
-                    <h3 className="text-lg font-semibold text-gray-900 mb-4">Performance</h3>
-
-                    <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Response Time</span>
-                            <span className="text-sm font-medium text-gray-900">~120ms</span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Uptime</span>
-                            <span className="text-sm font-medium text-gray-900">99.9%</span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Storage Used</span>
-                            <span className="text-sm font-medium text-gray-900">2.4 GB / 10 GB</span>
-                        </div>
-
-                        <div className="flex items-center justify-between">
-                            <span className="text-sm text-gray-600">Memory Usage</span>
-                            <span className="text-sm font-medium text-gray-900">68%</span>
-                        </div>
-                    </div>
                 </div>
             </div>
         </div>

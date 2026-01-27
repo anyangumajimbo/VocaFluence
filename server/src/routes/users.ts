@@ -271,4 +271,111 @@ router.get('/streak', authMiddleware, async (req: Request, res: Response, next: 
     }
 });
 
+// Admin dashboard stats
+router.get('/admin/dashboard', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        // Import ActivityLog at the top of the file
+        const { ActivityLog } = await import('../models/ActivityLog');
+
+        // Get total users count
+        const totalUsers = await User.countDocuments({ role: 'student' });
+
+        // Get active users (active in last 7 days)
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const activeUsers = await User.countDocuments({
+            role: 'student',
+            lastPracticeDate: { $gte: sevenDaysAgo }
+        });
+
+        // Get total sessions
+        const totalSessions = await PracticeSession.countDocuments();
+
+        // Get average score across all sessions
+        const avgScoreData = await PracticeSession.aggregate([
+            { $match: {} },
+            { $group: { _id: null, avgScore: { $avg: '$score' } } }
+        ]);
+        const avgScore = avgScoreData.length > 0 ? avgScoreData[0].avgScore : 0;
+
+        // Get language distribution (users by language)
+        const users = await User.find({ role: 'student' });
+        const languageStats: any = {};
+
+        for (const user of users) {
+            const userSessions = await PracticeSession.find({ userId: user._id });
+            
+            // Add user count for each language they practice
+            for (const language of user.preferredLanguages || ['english']) {
+                if (!languageStats[language]) {
+                    languageStats[language] = {
+                        users: new Set(),
+                        sessions: 0
+                    };
+                }
+                languageStats[language].users.add(user._id.toString());
+                languageStats[language].sessions += userSessions.length;
+            }
+        }
+
+        const languageDistribution = Object.entries(languageStats).map(([language, data]: [string, any]) => ({
+            language,
+            users: data.users.size,
+            sessions: data.sessions
+        }));
+
+        // Get recent activities
+        const recentActivities = await ActivityLog.find()
+            .populate('userId', 'email firstName lastName')
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .lean();
+
+        const formattedActivities = recentActivities.map((activity: any) => {
+            let description = '';
+            let type = 'activity';
+
+            if (activity.activityType === 'practice_session') {
+                type = 'practice';
+                description = `Practiced "${activity.details?.scriptTitle || 'Script'}" • Score: ${activity.details?.score || 0}%`;
+            } else if (activity.activityType === 'user_registered') {
+                type = 'register';
+                description = `Registered new account`;
+            } else if (activity.activityType === 'script_uploaded') {
+                type = 'script_upload';
+                description = `Uploaded script "${activity.details?.scriptTitle || 'Script'}"`;
+            } else {
+                description = activity.description || 'Activity recorded';
+            }
+
+            return {
+                type,
+                user: activity.userId?.email,
+                firstName: activity.userId?.firstName,
+                lastName: activity.userId?.lastName,
+                description,
+                time: new Date(activity.createdAt).toLocaleTimeString('en-US', { 
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
+            };
+        });
+
+        res.json({
+            stats: {
+                totalUsers,
+                totalSessions,
+                avgScore: Math.round(avgScore * 10) / 10,
+                activeUsers
+            },
+            languageDistribution,
+            recentActivity: formattedActivities
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
 export default router; 
