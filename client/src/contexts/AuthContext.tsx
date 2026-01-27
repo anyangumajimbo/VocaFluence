@@ -8,7 +8,7 @@ interface User {
     firstName?: string
     lastName?: string
     role: 'student' | 'admin'
-    preferredLanguage: 'english' | 'french' | 'swahili'
+    preferredLanguages: ('english' | 'french' | 'swahili')[]
     schedule: {
         frequency: 'daily' | 'weekly' | 'custom'
         customDays?: string[]
@@ -25,7 +25,7 @@ interface AuthContextType {
         email: string,
         password: string,
         role?: string,
-        preferredLanguage?: string,
+        preferredLanguages?: string[],
         firstName?: string,
         lastName?: string
     ) => Promise<void>
@@ -91,7 +91,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         email: string,
         password: string,
         role = 'student',
-        preferredLanguage = 'english',
+        preferredLanguages = ['english'],
         firstName = '',
         lastName = ''
     ) => {
@@ -100,7 +100,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 email,
                 password,
                 role,
-                preferredLanguage,
+                preferredLanguages,
                 firstName,
                 lastName
             })
@@ -130,9 +130,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const updateProfile = async (data: Partial<User>) => {
         try {
-            const response = await api.put('/auth/profile', data)
+            const response = await api.put('/users/profile', data)
             setUser(response.data.user)
-            toast.success('Profile updated successfully')
         } catch (error: any) {
             const message = error.response?.data?.message || 'Profile update failed'
             toast.error(message)

@@ -100,11 +100,37 @@ export const Practice: React.FC = () => {
 
     const fetchScripts = async () => {
         try {
+            // Get user's preferred languages or default to English
+            const userLanguages = user?.preferredLanguages && user.preferredLanguages.length > 0 
+                ? user.preferredLanguages 
+                : ['english']
+                
             const response = await scriptsAPI.getAll({
-                language: user?.preferredLanguage,
+                languages: userLanguages.join(','), // Send as comma-separated string
                 limit: 50
             })
-            setScripts(response.data.scripts)
+            
+            // Additional client-side filtering to ensure only selected languages are shown
+            const filteredByLanguage = response.data.scripts.filter(
+                (script: Script) => userLanguages.some(lang => 
+                    script.language.toLowerCase() === lang.toLowerCase()
+                )
+            )
+            
+            // Sort scripts by difficulty level: beginner → intermediate → advanced
+            const difficultyOrder: { [key: string]: number } = {
+                'beginner': 1,
+                'intermediate': 2,
+                'advanced': 3
+            }
+            
+            const sortedScripts = filteredByLanguage.sort((a: Script, b: Script) => {
+                const diffA = difficultyOrder[a.difficulty.toLowerCase()] || 999
+                const diffB = difficultyOrder[b.difficulty.toLowerCase()] || 999
+                return diffA - diffB
+            })
+            
+            setScripts(sortedScripts)
         } catch (error) {
             console.error('Error fetching scripts:', error)
             toast.error('Failed to load scripts')
@@ -283,31 +309,57 @@ export const Practice: React.FC = () => {
                 /* Script Selection Grid - Show all scripts */
                 <div className="card">
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Script</h2>
+                    <p className="text-sm text-gray-600 mb-4">
+                        Showing scripts in <span className="font-semibold capitalize">{user?.preferredLanguages?.join(', ')}</span>
+                    </p>
 
                     {scripts.length > 0 ? (
-                        <div className="space-y-3 max-h-96 overflow-y-auto">
-                            {scripts.map((script) => (
-                                <div
-                                    key={script._id}
-                                    className="p-4 border rounded-lg cursor-pointer transition-colors border-gray-200 hover:border-primary-300 hover:bg-primary-50"
-                                    onClick={() => setSelectedScript(script)}
-                                >
-                                    <div className="flex items-center justify-between">
-                                        <div>
-                                            <h3 className="font-medium text-gray-900">{script.title}</h3>
-                                            <p className="text-sm text-gray-500 capitalize">
-                                                {script.language} • {script.difficulty}
-                                            </p>
+                        <div className="space-y-6 max-h-96 overflow-y-auto">
+                            {['beginner', 'intermediate', 'advanced'].map((level) => {
+                                const levelScripts = scripts.filter(
+                                    (script) => script.difficulty.toLowerCase() === level
+                                )
+                                
+                                if (levelScripts.length === 0) return null
+
+                                return (
+                                    <div key={level}>
+                                        {/* Difficulty Level Header */}
+                                        <div className="flex items-center space-x-3 mb-3">
+                                            <h3 className="text-sm font-semibold text-gray-700 uppercase capitalize">
+                                                {level}
+                                            </h3>
+                                            <div className="flex-1 h-px bg-gray-200"></div>
+                                            <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
+                                                {levelScripts.length} script{levelScripts.length !== 1 ? 's' : ''}
+                                            </span>
                                         </div>
-                                        <CheckCircle className="h-5 w-5 text-gray-300" />
+
+                                        {/* Scripts in this difficulty level */}
+                                        <div className="space-y-2 ml-4">
+                                            {levelScripts.map((script) => (
+                                                <div
+                                                    key={script._id}
+                                                    className="p-3 border rounded-lg cursor-pointer transition-colors border-gray-200 hover:border-primary-300 hover:bg-primary-50"
+                                                    onClick={() => setSelectedScript(script)}
+                                                >
+                                                    <div className="flex items-center justify-between">
+                                                        <div>
+                                                            <h3 className="font-medium text-gray-900 text-sm">{script.title}</h3>
+                                                        </div>
+                                                        <CheckCircle className="h-4 w-4 text-gray-300" />
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
                                     </div>
-                                </div>
-                            ))}
+                                )
+                            })}
                         </div>
                     ) : (
                         <div className="text-center py-8">
                             <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-500">No scripts available</p>
+                            <p className="text-gray-500">No scripts available in {user?.preferredLanguages?.join(', ')}</p>
                         </div>
                     )}
                 </div>

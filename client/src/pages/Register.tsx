@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { useAuth } from '../contexts/AuthContext'
-import { Eye, EyeOff, Mail, Lock, User, Globe } from 'lucide-react'
+import { Eye, EyeOff, Mail, Lock, User, Globe, CheckCircle } from 'lucide-react'
 
 interface RegisterForm {
     firstName: string;
@@ -11,13 +11,14 @@ interface RegisterForm {
     password: string
     confirmPassword: string
     role: 'student' | 'admin'
-    preferredLanguage: 'english' | 'french' | 'swahili'
+    preferredLanguages: ('english' | 'french' | 'swahili')[]
 }
 
 export const Register: React.FC = () => {
     const [showPassword, setShowPassword] = useState(false)
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const [isLoading, setIsLoading] = useState(false)
+    const [selectedLanguages, setSelectedLanguages] = useState<string[]>(['english'])
     const { register: registerUser } = useAuth()
     const navigate = useNavigate()
 
@@ -29,11 +30,25 @@ export const Register: React.FC = () => {
     } = useForm<RegisterForm>({
         defaultValues: {
             role: 'student',
-            preferredLanguage: 'english'
+            preferredLanguages: ['english']
         }
     })
 
     const password = watch('password')
+
+    const toggleLanguage = (lang: string) => {
+        setSelectedLanguages(prev => {
+            if (prev.includes(lang)) {
+                // Don't allow removing if it's the only language
+                if (prev.length === 1) return prev
+                return prev.filter(l => l !== lang)
+            } else {
+                // Don't allow more than 3 languages
+                if (prev.length >= 3) return prev
+                return [...prev, lang]
+            }
+        })
+    }
 
     const onSubmit = async (data: RegisterForm) => {
         setIsLoading(true)
@@ -42,7 +57,7 @@ export const Register: React.FC = () => {
                 data.email,
                 data.password,
                 data.role,
-                data.preferredLanguage,
+                selectedLanguages,
                 data.firstName,
                 data.lastName
             )
@@ -225,20 +240,54 @@ export const Register: React.FC = () => {
                         </div>
 
                         <div>
-                            <label htmlFor="preferredLanguage" className="block text-sm font-medium text-gray-700">
-                                Preferred Language
+                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                                <Globe className="inline h-4 w-4 mr-1" />
+                                Preferred Languages (Select 1-3)
                             </label>
-                            <div className="mt-1 relative">
-                                <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                <select
-                                    id="preferredLanguage"
-                                    {...register('preferredLanguage')}
-                                    className="input-field pl-10"
-                                >
-                                    <option value="english">English</option>
-                                    <option value="french">French</option>
-                                    <option value="swahili">Swahili</option>
-                                </select>
+                            <div className="space-y-3">
+                                {(['english', 'french', 'swahili'] as const).map((lang) => {
+                                    const isSelected = selectedLanguages.includes(lang);
+                                    return (
+                                        <div
+                                            key={lang}
+                                            onClick={() => toggleLanguage(lang)}
+                                            className={`
+                                                relative flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all
+                                                ${isSelected 
+                                                    ? 'border-primary-500 bg-primary-50 shadow-sm' 
+                                                    : 'border-gray-200 bg-white hover:border-gray-300'
+                                                }
+                                            `}
+                                        >
+                                            <input
+                                                type="checkbox"
+                                                checked={isSelected}
+                                                onChange={() => {}}
+                                                className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                            />
+                                            <span className={`ml-3 text-base font-medium ${isSelected ? 'text-primary-900' : 'text-gray-700'}`}>
+                                                <span className="text-2xl mr-2">
+                                                    {lang === 'english' && '🇺🇸'}
+                                                    {lang === 'french' && '🇫🇷'}
+                                                    {lang === 'swahili' && '🇹🇿'}
+                                                </span>
+                                                {lang.charAt(0).toUpperCase() + lang.slice(1)}
+                                            </span>
+                                            {isSelected && (
+                                                <span className="ml-auto">
+                                                    <CheckCircle className="h-5 w-5 text-primary-600" />
+                                                </span>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                            <div className="mt-3 flex items-center justify-between">
+                                <p className="text-xs text-gray-600">
+                                    {selectedLanguages.length === 0 && '⚠️ Select at least one language'}
+                                    {selectedLanguages.length > 0 && selectedLanguages.length < 3 && `✓ ${selectedLanguages.length} language${selectedLanguages.length > 1 ? 's' : ''} selected`}
+                                    {selectedLanguages.length === 3 && '✓ Maximum 3 languages selected'}
+                                </p>
                             </div>
                         </div>
                     </div>

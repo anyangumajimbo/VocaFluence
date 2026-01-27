@@ -11,12 +11,13 @@ import {
     Save,
     Eye,
     EyeOff,
-    Lock
+    Lock,
+    CheckCircle
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
 interface ProfileForm {
-    preferredLanguage: 'english' | 'french' | 'swahili'
+    preferredLanguages: ('english' | 'french' | 'swahili')[]
     schedule: {
         frequency: 'daily' | 'weekly' | 'custom'
         customDays: string[]
@@ -38,13 +39,14 @@ export const Profile: React.FC = () => {
     const [showConfirmPassword, setShowConfirmPassword] = useState(false)
     const [loading, setLoading] = useState(false)
     const [stats, setStats] = useState<any>(null)
+    const [selectedLanguages, setSelectedLanguages] = useState<string[]>(user?.preferredLanguages || ['english'])
 
     const {
         register,
         handleSubmit
     } = useForm<ProfileForm>({
         defaultValues: {
-            preferredLanguage: user?.preferredLanguage || 'english',
+            preferredLanguages: user?.preferredLanguages || ['english'],
             schedule: {
                 frequency: user?.schedule?.frequency || 'daily',
                 customDays: user?.schedule?.customDays || [],
@@ -66,6 +68,12 @@ export const Profile: React.FC = () => {
     useEffect(() => {
         fetchStats()
     }, [])
+    
+    useEffect(() => {
+        if (user?.preferredLanguages) {
+            setSelectedLanguages(user.preferredLanguages)
+        }
+    }, [user])
 
     const fetchStats = async () => {
         try {
@@ -75,14 +83,38 @@ export const Profile: React.FC = () => {
             console.error('Error fetching stats:', error)
         }
     }
+    
+    const toggleLanguage = (lang: string) => {
+        setSelectedLanguages(prev => {
+            if (prev.includes(lang)) {
+                // Don't allow removing if it's the only language
+                if (prev.length === 1) {
+                    toast.error('You must have at least one language selected')
+                    return prev
+                }
+                return prev.filter(l => l !== lang)
+            } else {
+                // Don't allow more than 3 languages
+                if (prev.length >= 3) {
+                    toast.error('You can select a maximum of 3 languages')
+                    return prev
+                }
+                return [...prev, lang]
+            }
+        })
+    }
 
     const onSubmitProfile = async (data: ProfileForm) => {
         setLoading(true)
         try {
-            await updateProfile(data)
+            await updateProfile({ 
+                ...data, 
+                preferredLanguages: selectedLanguages as ('english' | 'french' | 'swahili')[]
+            })
             toast.success('Profile updated successfully')
         } catch (error) {
             console.error('Error updating profile:', error)
+            toast.error('Failed to update profile')
         } finally {
             setLoading(false)
         }
@@ -221,19 +253,54 @@ export const Profile: React.FC = () => {
                             </div>
 
                             <div>
-                                <label className="block text-sm font-medium text-gray-700 mb-2">
-                                    Preferred Language
+                                <label className="block text-sm font-medium text-gray-700 mb-3">
+                                    <Globe className="inline h-4 w-4 mr-1" />
+                                    Preferred Languages (Select 1-3)
                                 </label>
-                                <div className="relative">
-                                    <Globe className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
-                                    <select
-                                        {...register('preferredLanguage')}
-                                        className="input-field pl-10"
-                                    >
-                                        <option value="english">English</option>
-                                        <option value="french">French</option>
-                                        <option value="swahili">Swahili</option>
-                                    </select>
+                                <div className="space-y-3">
+                                    {(['english', 'french', 'swahili'] as const).map((lang) => {
+                                        const isSelected = selectedLanguages.includes(lang);
+                                        return (
+                                            <div
+                                                key={lang}
+                                                onClick={() => toggleLanguage(lang)}
+                                                className={`
+                                                    relative flex items-center p-4 rounded-lg border-2 cursor-pointer transition-all
+                                                    ${isSelected 
+                                                        ? 'border-primary-500 bg-primary-50 shadow-sm' 
+                                                        : 'border-gray-200 bg-white hover:border-gray-300'
+                                                    }
+                                                `}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={isSelected}
+                                                    onChange={() => {}}
+                                                    className="h-5 w-5 rounded border-gray-300 text-primary-600 focus:ring-primary-500 cursor-pointer"
+                                                />
+                                                <span className={`ml-3 text-base font-medium ${isSelected ? 'text-primary-900' : 'text-gray-700'}`}>
+                                                    <span className="text-2xl mr-2">
+                                                        {lang === 'english' && '🇺🇸'}
+                                                        {lang === 'french' && '🇫🇷'}
+                                                        {lang === 'swahili' && '🇹🇿'}
+                                                    </span>
+                                                    {lang.charAt(0).toUpperCase() + lang.slice(1)}
+                                                </span>
+                                                {isSelected && (
+                                                    <span className="ml-auto">
+                                                        <CheckCircle className="h-5 w-5 text-primary-600" />
+                                                    </span>
+                                                )}
+                                            </div>
+                                        );
+                                    })}
+                                </div>
+                                <div className="mt-3 flex items-center justify-between">
+                                    <p className="text-xs text-gray-600">
+                                        {selectedLanguages.length === 0 && '⚠️ Select at least one language'}
+                                        {selectedLanguages.length > 0 && selectedLanguages.length < 3 && `✓ ${selectedLanguages.length} language${selectedLanguages.length > 1 ? 's' : ''} selected`}
+                                        {selectedLanguages.length === 3 && '✓ Maximum 3 languages selected'}
+                                    </p>
                                 </div>
                             </div>
 

@@ -8,7 +8,7 @@ export interface IUser extends Document {
     firstName: string;
     lastName: string;
     role: 'student' | 'admin';
-    preferredLanguage: 'english' | 'french' | 'swahili';
+    preferredLanguages: ('english' | 'french' | 'swahili')[];
     schedule: {
         frequency: 'daily' | 'weekly' | 'custom';
         customDays?: string[];
@@ -60,11 +60,10 @@ const userSchema = new Schema<IUser>({
         enum: ['student', 'admin'],
         default: 'student'
     },
-    preferredLanguage: {
+    preferredLanguages: [{
         type: String,
-        enum: ['english', 'french', 'swahili'],
-        default: 'english'
-    },
+        enum: ['english', 'french', 'swahili']
+    }],
     schedule: {
         frequency: {
             type: String,

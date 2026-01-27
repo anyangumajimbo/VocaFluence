@@ -35,16 +35,52 @@ const upload = multer({
 // Get all scripts
 router.get('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { language, difficulty, category } = req.query;
+        const { language, languages, difficulty, category, page = 1, limit = 12 } = req.query;
         const filter: any = {};
 
-        if (language) filter.language = language;
+        // Support both single language and multiple languages (comma-separated)
+        if (languages) {
+            // Multiple languages as comma-separated string
+            const langArray = (languages as string).split(',').map(l => l.trim().toLowerCase());
+            filter.language = { $in: langArray };
+        } else if (language) {
+            // Single language for backward compatibility
+            const selectedLanguage = (language as string)?.toLowerCase();
+            if (['english', 'french', 'swahili'].includes(selectedLanguage)) {
+                filter.language = selectedLanguage;
+            }
+        }
+        
         if (difficulty) filter.difficulty = difficulty;
         if (category) filter.category = category;
 
-        const scripts = await Script.find(filter).sort({ createdAt: -1 });
+        // Calculate pagination
+        const pageNum = Math.max(1, parseInt(page as string) || 1);
+        const limitNum = Math.max(1, parseInt(limit as string) || 12);
+        const skip = (pageNum - 1) * limitNum;
 
-        res.json({ scripts });
+        // Get total count for pagination
+        const total = await Script.countDocuments(filter);
+        const pages = Math.ceil(total / limitNum);
+
+        // Get paginated scripts, sorted by difficulty and creation date
+        const scripts = await Script.find(filter)
+            .sort({ 
+                difficulty: 1,  // Sort by difficulty: beginner, intermediate, advanced
+                createdAt: -1   // Then by creation date (newest first)
+            })
+            .skip(skip)
+            .limit(limitNum);
+
+        res.json({ 
+            scripts,
+            pagination: {
+                total,
+                page: pageNum,
+                limit: limitNum,
+                pages
+            }
+        });
     } catch (error) {
         next(error);
     }

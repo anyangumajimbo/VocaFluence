@@ -28,7 +28,7 @@ export const Scripts: React.FC = () => {
     const [scripts, setScripts] = useState<Script[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
-    const [selectedLanguage, setSelectedLanguage] = useState<string>('')
+    const [selectedLanguage, setSelectedLanguage] = useState<string>(user?.preferredLanguages?.[0] || '')
     const [selectedDifficulty, setSelectedDifficulty] = useState<string>('')
     const [currentPage, setCurrentPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
@@ -44,11 +44,41 @@ export const Scripts: React.FC = () => {
                 limit: 12
             }
 
-            if (selectedLanguage) params.language = selectedLanguage
+            // Get user's preferred languages
+            const userLanguages = selectedLanguage 
+                ? [selectedLanguage] 
+                : (user?.preferredLanguages && user.preferredLanguages.length > 0 
+                    ? user.preferredLanguages 
+                    : ['english'])
+            
+            // Send as comma-separated string
+            params.languages = userLanguages.join(',')
+
             if (selectedDifficulty) params.difficulty = selectedDifficulty
 
             const response = await scriptsAPI.getAll(params)
-            setScripts(response.data.scripts)
+            
+            // Additional client-side filtering to ensure only selected languages
+            const filteredByLanguage = response.data.scripts.filter(
+                (script: Script) => userLanguages.some(lang =>
+                    script.language.toLowerCase() === lang.toLowerCase()
+                )
+            )
+            
+            // Sort scripts by difficulty level: beginner → intermediate → advanced
+            const difficultyOrder: { [key: string]: number } = {
+                'beginner': 1,
+                'intermediate': 2,
+                'advanced': 3
+            }
+            
+            const sortedScripts = filteredByLanguage.sort((a: Script, b: Script) => {
+                const diffA = difficultyOrder[a.difficulty.toLowerCase()] || 999
+                const diffB = difficultyOrder[b.difficulty.toLowerCase()] || 999
+                return diffA - diffB
+            })
+            
+            setScripts(sortedScripts)
             setTotalPages(response.data.pagination.pages)
         } catch (error) {
             console.error('Error fetching scripts:', error)
@@ -288,9 +318,9 @@ export const Scripts: React.FC = () => {
 
                 <div className="card text-center">
                     <div className="text-2xl font-bold text-warning-600">
-                        {scripts.filter(s => s.language === user?.preferredLanguage).length}
+                        {scripts.filter(s => user?.preferredLanguages?.includes(s.language as any)).length}
                     </div>
-                    <p className="text-sm text-gray-500">Your Language</p>
+                    <p className="text-sm text-gray-500">Your Languages</p>
                 </div>
             </div>
         </div>

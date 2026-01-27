@@ -107,7 +107,7 @@ export const Dashboard: React.FC = () => {
                     Welcome back, {user?.firstName || user?.email?.split('@')[0]}!
                 </h1>
                 <p className="text-gray-600">
-                    Ready to improve your {user?.preferredLanguage} fluency?
+                    Ready to improve your {user?.preferredLanguages?.join(', ')} fluency?
                 </p>
             </div>
 
@@ -331,7 +331,7 @@ export const Dashboard: React.FC = () => {
                     <div className="flex items-center justify-between">
                         <span className="text-sm text-gray-600">Preferred Language:</span>
                         <span className="text-sm font-medium text-gray-900 capitalize">
-                            {user?.preferredLanguage}
+                            {user?.preferredLanguages?.join(', ')}
                         </span>
                     </div>
                 </div>

@@ -16,7 +16,8 @@ router.post('/register', [
     body('firstName').trim().notEmpty().withMessage('First name is required'),
     body('lastName').trim().notEmpty().withMessage('Last name is required'),
     body('role').isIn(['student', 'admin']).withMessage('Role must be student or admin'),
-    body('preferredLanguage').isIn(['english', 'french', 'swahili']).withMessage('Preferred language is required')
+    body('preferredLanguages').isArray({ min: 1, max: 3 }).withMessage('Select 1-3 preferred languages'),
+    body('preferredLanguages.*').isIn(['english', 'french', 'swahili']).withMessage('Invalid language')
 ], async (req: Request, res: Response, next: NextFunction) => {
     try {
         const errors = validationResult(req);
@@ -25,7 +26,7 @@ router.post('/register', [
             return;
         }
 
-        const { email, password, firstName, lastName, role, preferredLanguage } = req.body;
+        const { email, password, firstName, lastName, role, preferredLanguages } = req.body;
 
         // Check if user exists
         const existingUser = await User.findOne({ email: email.toLowerCase() });
@@ -41,7 +42,7 @@ router.post('/register', [
             firstName,
             lastName,
             role,
-            preferredLanguage
+            preferredLanguages: preferredLanguages || ['english']
         });
 
         await user.save();

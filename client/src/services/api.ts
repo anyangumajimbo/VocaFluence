@@ -55,7 +55,7 @@ export const authAPI = {
 }
 
 export const scriptsAPI = {
-    getAll: (params?: { language?: string; difficulty?: string; page?: number; limit?: number }) =>
+    getAll: (params?: { language?: string; languages?: string; difficulty?: string; page?: number; limit?: number }) =>
         api.get('/scripts', { params }),
     getById: (id: string) => api.get(`/scripts/${id}`),
     getByLanguage: (language: string, params?: { difficulty?: string }) =>

@@ -93,7 +93,10 @@ router.put('/profile', [
     authMiddleware,
     body('firstName').optional().trim().notEmpty(),
     body('lastName').optional().trim().notEmpty(),
-    body('preferredLanguage').optional().isIn(['english', 'french', 'swahili']),
+    body('preferredLanguages').optional().isArray({ min: 1, max: 3 }).withMessage('Select 1-3 preferred languages'),
+    body('preferredLanguages.*').optional().isIn(['english', 'french', 'swahili']).withMessage('Invalid language'),
+    body('schedule.frequency').optional().isIn(['daily', 'weekly', 'custom']),
+    body('schedule.reminderTime').optional().isString(),
     body('timezone').optional().isString()
 ], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
@@ -109,7 +112,7 @@ router.put('/profile', [
         const user = await User.findByIdAndUpdate(
             userId,
             updateData,
-            { new: true }
+            { new: true, runValidators: true }
         ).select('-password');
 
         if (!user) {
@@ -240,6 +243,29 @@ router.get('/achievements', authMiddleware, async (req: Request, res: Response, 
         };
 
         res.json({ achievements });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Get user practice streak
+router.get('/streak', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        const userId = (req as any).user._id;
+        const user = await User.findById(userId);
+
+        if (!user) {
+            res.status(404).json({ error: 'User not found' });
+            return;
+        }
+
+        res.json({
+            streak: {
+                currentStreak: user.streakDays || 0,
+                longestStreak: user.longestStreak || 0,
+                lastPracticeDate: user.lastPracticeDate || null
+            }
+        });
     } catch (error) {
         next(error);
     }
