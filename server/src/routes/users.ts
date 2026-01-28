@@ -4,6 +4,8 @@ import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { User } from '../models/User';
 import { PracticeSession } from '../models/PracticeSession';
 import { ActivityLog } from '../models/ActivityLog';
+import { Script } from '../models/Script';
+import OralExamSession from '../models/OralExamSession';
 
 const router: Router = express.Router();
 
@@ -35,6 +37,120 @@ router.get('/', authMiddleware, adminMiddleware, async (req: Request, res: Respo
                 total,
                 pages: Math.ceil(total / Number(limit))
             }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
+
+// Admin dashboard stats (must come before /:id route)
+router.get('/admin/dashboard', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+        // Get total users count
+        const totalUsers = await User.countDocuments({ role: 'student' });
+
+        // Get active users (active in last 7 days)
+        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+        const activeUsers = await User.countDocuments({
+            role: 'student',
+            lastPracticeDate: { $gte: sevenDaysAgo }
+        });
+
+        // Get total sessions
+        const totalSessions = await PracticeSession.countDocuments();
+
+        // Get average score across all sessions
+        const avgScoreData = await PracticeSession.aggregate([
+            { $match: {} },
+            { $group: { _id: null, avgScore: { $avg: '$score' } } }
+        ]);
+        const avgScore = avgScoreData.length > 0 ? avgScoreData[0].avgScore : 0;
+
+        // Get language distribution (users by language preference and all session types)
+        const languageDistribution = await Promise.all(
+            ['english', 'french', 'swahili'].map(async (language) => {
+                // Count users with this language preference
+                const usersCount = await User.countDocuments({
+                    role: 'student',
+                    preferredLanguages: language
+                });
+
+                // Count practice sessions by joining with Script to get language
+                const scriptIds = await Script.find({ language }).distinct('_id');
+                const practiceSessionsCount = await PracticeSession.countDocuments({
+                    scriptId: { $in: scriptIds }
+                });
+
+                // Count oral exam sessions (for French - based on the oralTopics data)
+                // Oral sessions don't have language stored, so we treat them as French by default
+                const oralSessionsCount = language === 'french' 
+                    ? await OralExamSession.countDocuments()
+                    : 0;
+
+                const totalSessions = practiceSessionsCount + oralSessionsCount;
+
+                return {
+                    language,
+                    users: usersCount,
+                    sessions: totalSessions
+                };
+            })
+        );
+
+        // Filter out languages with no users or sessions
+        const filteredLanguageDistribution = languageDistribution.filter(
+            lang => lang.users > 0 || lang.sessions > 0
+        );
+
+        // Get recent activities
+        const recentActivities = await ActivityLog.find()
+            .populate('userId', 'email firstName lastName')
+            .sort({ createdAt: -1 })
+            .limit(10)
+            .lean();
+
+        const formattedActivities = recentActivities.map((activity: any) => {
+            let description = '';
+            let type = 'activity';
+
+            if (activity.activityType === 'practice_session') {
+                type = 'practice';
+                description = `Practiced "${activity.details?.scriptTitle || 'Script'}" • Score: ${activity.details?.score || 0}%`;
+            } else if (activity.activityType === 'user_registered') {
+                type = 'register';
+                description = `Registered new account`;
+            } else if (activity.activityType === 'script_uploaded') {
+                type = 'script_upload';
+                description = `Uploaded script "${activity.details?.scriptTitle || 'Script'}"`;
+            } else {
+                description = activity.description || 'Activity recorded';
+            }
+
+            return {
+                type,
+                user: activity.userId?.email,
+                firstName: activity.userId?.firstName,
+                lastName: activity.userId?.lastName,
+                description,
+                time: new Date(activity.createdAt).toLocaleTimeString('en-US', { 
+                    year: 'numeric',
+                    month: 'short',
+                    day: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                })
+            };
+        });
+
+        res.json({
+            stats: {
+                totalUsers,
+                totalSessions,
+                avgScore: Math.round(avgScore * 10) / 10,
+                activeUsers
+            },
+            languageDistribution: filteredLanguageDistribution,
+            recentActivity: formattedActivities
         });
     } catch (error) {
         next(error);
@@ -266,110 +382,6 @@ router.get('/streak', authMiddleware, async (req: Request, res: Response, next: 
                 longestStreak: user.longestStreak || 0,
                 lastPracticeDate: user.lastPracticeDate || null
             }
-        });
-    } catch (error) {
-        next(error);
-    }
-});
-
-// Admin dashboard stats
-router.get('/admin/dashboard', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
-    try {
-        // Get total users count
-        const totalUsers = await User.countDocuments({ role: 'student' });
-
-        // Get active users (active in last 7 days)
-        const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-        const activeUsers = await User.countDocuments({
-            role: 'student',
-            lastPracticeDate: { $gte: sevenDaysAgo }
-        });
-
-        // Get total sessions
-        const totalSessions = await PracticeSession.countDocuments();
-
-        // Get average score across all sessions
-        const avgScoreData = await PracticeSession.aggregate([
-            { $match: {} },
-            { $group: { _id: null, avgScore: { $avg: '$score' } } }
-        ]);
-        const avgScore = avgScoreData.length > 0 ? avgScoreData[0].avgScore : 0;
-
-        // Get language distribution (users by language)
-        const users = await User.find({ role: 'student' });
-        const languageStats: any = {};
-
-        for (const user of users) {
-            const userSessions = await PracticeSession.find({ userId: user._id });
-            
-            // Add user count for each language they practice
-            for (const language of user.preferredLanguages || ['english']) {
-                if (!languageStats[language]) {
-                    languageStats[language] = {
-                        users: new Set(),
-                        sessions: 0
-                    };
-                }
-                languageStats[language].users.add(user._id.toString());
-                languageStats[language].sessions += userSessions.length;
-            }
-        }
-
-        const languageDistribution = Object.entries(languageStats).map(([language, data]: [string, any]) => ({
-            language,
-            users: data.users.size,
-            sessions: data.sessions
-        }));
-
-        // Get recent activities
-        const recentActivities = await ActivityLog.find()
-            .populate('userId', 'email firstName lastName')
-            .sort({ createdAt: -1 })
-            .limit(10)
-            .lean();
-
-        const formattedActivities = recentActivities.map((activity: any) => {
-            let description = '';
-            let type = 'activity';
-
-            if (activity.activityType === 'practice_session') {
-                type = 'practice';
-                description = `Practiced "${activity.details?.scriptTitle || 'Script'}" • Score: ${activity.details?.score || 0}%`;
-            } else if (activity.activityType === 'user_registered') {
-                type = 'register';
-                description = `Registered new account`;
-            } else if (activity.activityType === 'script_uploaded') {
-                type = 'script_upload';
-                description = `Uploaded script "${activity.details?.scriptTitle || 'Script'}"`;
-            } else {
-                description = activity.description || 'Activity recorded';
-            }
-
-            return {
-                type,
-                user: activity.userId?.email,
-                firstName: activity.userId?.firstName,
-                lastName: activity.userId?.lastName,
-                description,
-                time: new Date(activity.createdAt).toLocaleTimeString('en-US', { 
-                    year: 'numeric',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                })
-            };
-        });
-
-        res.json({
-            stats: {
-                totalUsers,
-                totalSessions,
-                avgScore: Math.round(avgScore * 10) / 10,
-                activeUsers
-            },
-            languageDistribution,
-            recentActivity: formattedActivities
         });
     } catch (error) {
         next(error);
