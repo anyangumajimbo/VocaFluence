@@ -3,6 +3,7 @@ import { body, validationResult } from 'express-validator';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { User } from '../models/User';
 import { PracticeSession } from '../models/PracticeSession';
+import { ActivityLog } from '../models/ActivityLog';
 
 const router: Router = express.Router();
 
@@ -274,9 +275,6 @@ router.get('/streak', authMiddleware, async (req: Request, res: Response, next: 
 // Admin dashboard stats
 router.get('/admin/dashboard', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        // Import ActivityLog at the top of the file
-        const { ActivityLog } = await import('../models/ActivityLog');
-
         // Get total users count
         const totalUsers = await User.countDocuments({ role: 'student' });
 
