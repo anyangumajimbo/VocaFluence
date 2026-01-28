@@ -188,7 +188,10 @@ router.put('/:id/status', authMiddleware, adminMiddleware, async (req: Request, 
 
         const user = await User.findByIdAndUpdate(
             id,
-            { status },
+            { 
+                status,
+                isActive: status === 'active'
+            },
             { new: true }
         ).select('-password');
 

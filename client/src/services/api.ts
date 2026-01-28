@@ -82,7 +82,7 @@ export const usersAPI = {
     getDashboard: () => api.get('/users/stats/overview'),
     getProgress: () => api.get('/users/stats/languages'),
     getStreak: () => api.get('/users/streak'),
-    updateStatus: (id: string, data: { isActive: boolean }) =>
+    updateStatus: (id: string, data: { status: string }) =>
         api.put(`/users/${id}/status`, data),
 }
 
