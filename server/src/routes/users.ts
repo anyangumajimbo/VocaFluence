@@ -9,6 +9,7 @@ import OralExamSession from '../models/OralExamSession';
 
 const router: Router = express.Router();
 
+// Admin dashboard endpoint - moved before /:id to ensure proper route matching
 // Get all users (admin only)
 router.get('/', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
