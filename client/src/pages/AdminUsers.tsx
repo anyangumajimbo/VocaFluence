@@ -12,6 +12,8 @@ import toast from 'react-hot-toast'
 interface User {
     _id: string
     email: string
+    firstName?: string
+    lastName?: string
     role: 'student' | 'admin'
     preferredLanguage: string
     createdAt: string
@@ -70,9 +72,12 @@ export const AdminUsers: React.FC = () => {
         }
     }
 
-    const filteredUsers = users.filter(user =>
-        user.email.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const filteredUsers = users.filter(user => {
+        const fullName = `${user.firstName || ''} ${user.lastName || ''}`.toLowerCase()
+        const email = user.email.toLowerCase()
+        const search = searchTerm.toLowerCase()
+        return fullName.includes(search) || email.includes(search)
+    })
 
     const getRoleColor = (role: string) => {
         switch (role) {
@@ -184,7 +189,10 @@ export const AdminUsers: React.FC = () => {
                                     <div className="flex-1">
                                         <div className="flex items-center space-x-3 mb-1">
                                             <h3 className="text-lg font-semibold text-gray-900">
-                                                {user.email}
+                                                {user.firstName && user.lastName 
+                                                    ? `${user.firstName} ${user.lastName}`
+                                                    : user.email
+                                                }
                                             </h3>
                                             <span className={`px-2 py-1 text-xs font-medium rounded-full ${getRoleColor(user.role)}`}>
                                                 {user.role}
@@ -195,6 +203,12 @@ export const AdminUsers: React.FC = () => {
                                         </div>
 
                                         <div className="flex items-center space-x-4 text-sm text-gray-500">
+                                            {(user.firstName || user.lastName) && (
+                                                <div className="flex items-center">
+                                                    <span>{user.email}</span>
+                                                </div>
+                                            )}
+                                            
                                             <div className="flex items-center">
                                                 <span className="mr-1">{getLanguageFlag(user.preferredLanguage)}</span>
                                                 <span className="capitalize">{user.preferredLanguage}</span>
