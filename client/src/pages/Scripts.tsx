@@ -44,12 +44,10 @@ export const Scripts: React.FC = () => {
                 limit: 12
             }
 
-            // Get user's preferred languages
+            // Get user's preferred languages or show all languages
             const userLanguages = selectedLanguage 
                 ? [selectedLanguage] 
-                : (user?.preferredLanguages && user.preferredLanguages.length > 0 
-                    ? user.preferredLanguages 
-                    : ['english'])
+                : ['english', 'french', 'swahili'] // Show all languages when no specific language is selected
             
             // Send as comma-separated string
             params.languages = userLanguages.join(',')

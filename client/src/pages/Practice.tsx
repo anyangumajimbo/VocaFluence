@@ -69,6 +69,8 @@ export const Practice: React.FC = () => {
     const [practiceResult, setPracticeResult] = useState<PracticeResult | null>(null)
     const [loading, setLoading] = useState(true)
     const [fontSize, setFontSize] = useState(16) // Font size in pixels
+    const [selectedLanguage, setSelectedLanguage] = useState<string>(user?.preferredLanguages?.[0] || '')
+    const [selectedDifficulty, setSelectedDifficulty] = useState<string>('')
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const audioChunksRef = useRef<Blob[]>([])
@@ -78,7 +80,7 @@ export const Practice: React.FC = () => {
 
     useEffect(() => {
         fetchScripts()
-    }, [])
+    }, [selectedLanguage, selectedDifficulty])
 
     useEffect(() => {
         if (isRecording) {
@@ -100,15 +102,19 @@ export const Practice: React.FC = () => {
 
     const fetchScripts = async () => {
         try {
-            // Get user's preferred languages or default to English
-            const userLanguages = user?.preferredLanguages && user.preferredLanguages.length > 0 
-                ? user.preferredLanguages 
-                : ['english']
-                
-            const response = await scriptsAPI.getAll({
+            // Get user's preferred languages or show all languages
+            const userLanguages = selectedLanguage 
+                ? [selectedLanguage] 
+                : ['english', 'french', 'swahili'] // Show all languages when no specific language is selected
+            
+            const params: any = {
                 languages: userLanguages.join(','), // Send as comma-separated string
                 limit: 50
-            })
+            }
+            
+            if (selectedDifficulty) params.difficulty = selectedDifficulty
+                
+            const response = await scriptsAPI.getAll(params)
             
             // Additional client-side filtering to ensure only selected languages are shown
             const filteredByLanguage = response.data.scripts.filter(
@@ -307,10 +313,46 @@ export const Practice: React.FC = () => {
 
             {!selectedScript ? (
                 /* Script Selection Grid - Show all scripts */
-                <div className="card">
+                <>
+                    {/* Filters */}
+                    <div className="card">
+                        <div className="flex flex-col md:flex-row gap-4">
+                            {/* Language Filter */}
+                            <div className="flex-shrink-0">
+                                <select
+                                    value={selectedLanguage}
+                                    onChange={(e) => setSelectedLanguage(e.target.value)}
+                                    className="input-field"
+                                >
+                                    <option value="">All Languages</option>
+                                    <option value="english">English</option>
+                                    <option value="french">French</option>
+                                    <option value="swahili">Swahili</option>
+                                </select>
+                            </div>
+
+                            {/* Difficulty Filter */}
+                            <div className="flex-shrink-0">
+                                <select
+                                    value={selectedDifficulty}
+                                    onChange={(e) => setSelectedDifficulty(e.target.value)}
+                                    className="input-field"
+                                >
+                                    <option value="">All Difficulties</option>
+                                    <option value="beginner">Beginner</option>
+                                    <option value="intermediate">Intermediate</option>
+                                    <option value="advanced">Advanced</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="card">
                     <h2 className="text-lg font-semibold text-gray-900 mb-4">Select Script</h2>
                     <p className="text-sm text-gray-600 mb-4">
-                        Showing scripts in <span className="font-semibold capitalize">{user?.preferredLanguages?.join(', ')}</span>
+                        Showing scripts in <span className="font-semibold capitalize">
+                            {selectedLanguage ? selectedLanguage : 'English, French, and Swahili'}
+                        </span>
                     </p>
 
                     {scripts.length > 0 ? (
@@ -359,10 +401,11 @@ export const Practice: React.FC = () => {
                     ) : (
                         <div className="text-center py-8">
                             <AlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                            <p className="text-gray-500">No scripts available in {user?.preferredLanguages?.join(', ')}</p>
+                            <p className="text-gray-500">No scripts available for the selected filters</p>
                         </div>
                     )}
                 </div>
+                </>
             ) : (
                 /* Centered Script View - Show only selected script */
                 <div className="max-w-4xl mx-auto">
