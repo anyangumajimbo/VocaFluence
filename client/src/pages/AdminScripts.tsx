@@ -10,8 +10,6 @@ import {
     Save,
     X,
     Upload,
-    Mic,
-    StopCircle,
     Volume2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
@@ -55,10 +53,6 @@ export const AdminScripts: React.FC = () => {
     // Reference audio states
     const [referenceAudioFile, setReferenceAudioFile] = useState<File | null>(null)
     const [referenceAudioURL, setReferenceAudioURL] = useState<string>('')
-    const [isRecordingRef, setIsRecordingRef] = useState(false)
-    const [audioStream, setAudioStream] = useState<MediaStream | null>(null)
-    const mediaRecorderRef = useRef<MediaRecorder | null>(null)
-    const audioChunksRef = useRef<Blob[]>([])
     const fileInputRef = useRef<HTMLInputElement>(null)
 
     const {
@@ -72,61 +66,6 @@ export const AdminScripts: React.FC = () => {
     useEffect(() => {
         fetchScripts()
     }, [currentPage, selectedLanguage, selectedDifficulty])
-
-    useEffect(() => {
-        // Cleanup audio stream when component unmounts or form closes
-        return () => {
-            if (audioStream) {
-                audioStream.getTracks().forEach(track => track.stop())
-            }
-        }
-    }, [audioStream])
-
-    // Start recording reference audio
-    const startRecordingReference = async () => {
-        try {
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
-            setAudioStream(stream)
-            setIsRecordingRef(true)
-            audioChunksRef.current = []
-
-            const mediaRecorder = new MediaRecorder(stream)
-            mediaRecorderRef.current = mediaRecorder
-
-            mediaRecorder.ondataavailable = (event) => {
-                if (event.data.size > 0) {
-                    audioChunksRef.current.push(event.data)
-                }
-            }
-
-            mediaRecorder.onstop = () => {
-                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
-                const file = new File([audioBlob], 'reference-audio.webm', { type: 'audio/webm' })
-                setReferenceAudioFile(file)
-                const url = URL.createObjectURL(audioBlob)
-                setReferenceAudioURL(url)
-            }
-
-            mediaRecorder.start()
-            toast.success('Recording reference audio...')
-        } catch (error) {
-            console.error('Error starting recording:', error)
-            toast.error('Failed to access microphone')
-        }
-    }
-
-    // Stop recording reference audio
-    const stopRecordingReference = () => {
-        if (mediaRecorderRef.current && isRecordingRef) {
-            mediaRecorderRef.current.stop()
-            setIsRecordingRef(false)
-            if (audioStream) {
-                audioStream.getTracks().forEach(track => track.stop())
-                setAudioStream(null)
-            }
-            toast.success('Recording stopped')
-        }
-    }
 
     // Handle file selection
     const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -163,7 +102,8 @@ export const AdminScripts: React.FC = () => {
         try {
             const params: any = {
                 page: currentPage,
-                limit: 20
+                limit: 20,
+                fromDate: '2026-01-29' // Only show scripts from today onwards
             }
 
             if (selectedLanguage) params.language = selectedLanguage
@@ -432,38 +372,16 @@ export const AdminScripts: React.FC = () => {
                             </label>
 
                             <div className="space-y-3">
-                                {/* Upload and Record buttons */}
+                                {/* Upload button */}
                                 <div className="flex flex-wrap gap-3">
                                     <button
                                         type="button"
                                         onClick={() => fileInputRef.current?.click()}
                                         className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
-                                        disabled={isRecordingRef}
                                     >
                                         <Upload className="h-4 w-4 mr-2" />
                                         Upload Audio File
                                     </button>
-
-                                    {!isRecordingRef ? (
-                                        <button
-                                            type="button"
-                                            onClick={startRecordingReference}
-                                            className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
-                                            disabled={!!referenceAudioFile}
-                                        >
-                                            <Mic className="h-4 w-4 mr-2" />
-                                            Record Audio
-                                        </button>
-                                    ) : (
-                                        <button
-                                            type="button"
-                                            onClick={stopRecordingReference}
-                                            className="flex items-center px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 transition-colors animate-pulse"
-                                        >
-                                            <StopCircle className="h-4 w-4 mr-2" />
-                                            Stop Recording
-                                        </button>
-                                    )}
 
                                     {referenceAudioFile && (
                                         <button
@@ -527,15 +445,6 @@ export const AdminScripts: React.FC = () => {
                                             <source src={referenceAudioURL} type={referenceAudioFile?.type || "audio/webm"} />
                                             Your browser does not support the audio element.
                                         </audio>
-                                    </div>
-                                )}
-
-                                {isRecordingRef && (
-                                    <div className="p-3 bg-error-50 border border-error-200 rounded-lg">
-                                        <div className="flex items-center text-sm text-error-700">
-                                            <div className="h-3 w-3 bg-error-600 rounded-full mr-2 animate-pulse" />
-                                            Recording in progress...
-                                        </div>
                                     </div>
                                 )}
                             </div>

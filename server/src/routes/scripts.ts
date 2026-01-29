@@ -2,15 +2,27 @@ import express, { Request, Response, NextFunction, Router } from 'express';
 import { body, validationResult } from 'express-validator';
 import multer from 'multer';
 import path from 'path';
+import fs from 'fs';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { Script } from '../models/Script';
 
 const router: Router = express.Router();
 
+// Ensure uploads directory exists
+const uploadDir = path.join(__dirname, '../../uploads/reference-audio');
+if (!fs.existsSync(uploadDir)) {
+    fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 // Configure multer for file uploads
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, 'uploads/');
+        // Different folders for different types of audio
+        if (file.fieldname === 'referenceAudio') {
+            cb(null, 'uploads/reference-audio/');
+        } else {
+            cb(null, 'uploads/');
+        }
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -35,7 +47,7 @@ const upload = multer({
 // Get all scripts
 router.get('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
-        const { language, languages, difficulty, category, page = 1, limit = 12 } = req.query;
+        const { language, languages, difficulty, category, page = 1, limit = 12, fromDate } = req.query;
         const filter: any = {};
 
         // Support both single language and multiple languages (comma-separated)
@@ -53,6 +65,11 @@ router.get('/', async (req: Request, res: Response, next: NextFunction): Promise
         
         if (difficulty) filter.difficulty = difficulty;
         if (category) filter.category = category;
+        
+        // Filter by creation date if provided
+        if (fromDate) {
+            filter.createdAt = { $gte: new Date(fromDate as string) };
+        }
 
         // Calculate pagination
         const pageNum = Math.max(1, parseInt(page as string) || 1);
@@ -103,15 +120,15 @@ router.get('/:id', async (req: Request, res: Response, next: NextFunction): Prom
     }
 });
 
-// Create new script (admin only)
+// Create new script (all authenticated users)
 router.post('/', [
     authMiddleware,
-    adminMiddleware,
+    upload.single('referenceAudio'), // Handle file upload
     body('title').trim().notEmpty(),
     body('textContent').trim().notEmpty(),
     body('language').isIn(['english', 'french', 'swahili']),
     body('difficulty').isIn(['beginner', 'intermediate', 'advanced']),
-    body('tags').optional().isArray()
+    body('tags').optional()
 ], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const errors = validationResult(req);
@@ -128,15 +145,32 @@ router.post('/', [
             tags
         } = req.body;
 
-        const script = new Script({
+        // Parse tags if it's a JSON string
+        let parsedTags = [];
+        if (tags) {
+            try {
+                parsedTags = typeof tags === 'string' ? JSON.parse(tags) : tags;
+            } catch (e) {
+                parsedTags = typeof tags === 'string' ? tags.split(',').map((t: string) => t.trim()) : [];
+            }
+        }
+
+        const scriptData: any = {
             title,
             textContent,
             language,
             difficulty,
-            tags: tags || [],
+            tags: parsedTags,
             uploadedBy: (req as any).user._id
-        });
+        };
 
+        // Add reference audio URL if file was uploaded
+        if (req.file) {
+            // Store relative path for the URL
+            scriptData.referenceAudioURL = `/uploads/reference-audio/${req.file.filename}`;
+        }
+
+        const script = new Script(scriptData);
         await script.save();
 
         res.status(201).json({
@@ -148,17 +182,18 @@ router.post('/', [
     }
 });
 
-// Update script (admin only)
+// Update script (all authenticated users)
 router.put('/:id', [
     authMiddleware,
-    adminMiddleware,
+    upload.single('referenceAudio'), // Handle file upload
     body('title').optional().trim().notEmpty(),
+    body('textContent').optional().trim().notEmpty(),
     body('content').optional().trim().notEmpty(),
     body('language').optional().isIn(['english', 'french', 'swahili']),
     body('difficulty').optional().isIn(['beginner', 'intermediate', 'advanced']),
     body('category').optional().trim().notEmpty(),
     body('description').optional().isString(),
-    body('tags').optional().isArray()
+    body('tags').optional()
 ], async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const errors = validationResult(req);
@@ -168,7 +203,21 @@ router.put('/:id', [
         }
 
         const { id } = req.params;
-        const updateData = req.body;
+        const updateData: any = { ...req.body };
+
+        // Parse tags if it's a JSON string
+        if (updateData.tags) {
+            try {
+                updateData.tags = typeof updateData.tags === 'string' ? JSON.parse(updateData.tags) : updateData.tags;
+            } catch (e) {
+                updateData.tags = typeof updateData.tags === 'string' ? updateData.tags.split(',').map((t: string) => t.trim()) : updateData.tags;
+            }
+        }
+
+        // Add reference audio URL if file was uploaded
+        if (req.file) {
+            updateData.referenceAudioURL = `/uploads/reference-audio/${req.file.filename}`;
+        }
 
         const script = await Script.findByIdAndUpdate(
             id,
@@ -190,8 +239,8 @@ router.put('/:id', [
     }
 });
 
-// Delete script (admin only)
-router.delete('/:id', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+// Delete script (all authenticated users)
+router.delete('/:id', authMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { id } = req.params;
 
@@ -208,8 +257,8 @@ router.delete('/:id', authMiddleware, adminMiddleware, async (req: Request, res:
     }
 });
 
-// Upload audio for script (admin only)
-router.post('/:id/audio', authMiddleware, adminMiddleware, upload.single('audio'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+// Upload audio for script (all authenticated users)
+router.post('/:id/audio', authMiddleware, upload.single('audio'), async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { id } = req.params;
         const audioFile = req.file;

@@ -110,7 +110,8 @@ export const Practice: React.FC = () => {
             
             const params: any = {
                 languages: userLanguages.join(','), // Send as comma-separated string
-                limit: 50
+                limit: 50,
+                fromDate: '2026-01-29' // Hide all old scripts
             }
             
             if (selectedDifficulty) params.difficulty = selectedDifficulty

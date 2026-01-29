@@ -190,15 +190,15 @@ const Feedback: React.FC = () => {
                                     </p>
                                 </div>
 
-                                {/* Reference Audio */}
+                                {/* Correction Audio from Admin */}
                                 {feedback.referenceAudio && (
                                     <div className="bg-purple-50 p-4 rounded-lg border border-purple-200">
                                         <h4 className="font-semibold text-gray-800 mb-3 flex items-center gap-2">
                                             <span className="text-purple-600">🎵</span>
-                                            Reference Pronunciation Guide
+                                            Pronunciation Correction
                                         </h4>
                                         <p className="text-sm text-gray-600 mb-3">
-                                            Listen to the correct pronunciation of the text to improve your speaking:
+                                            Listen to how your instructor pronounces the text correctly to improve your speaking:
                                         </p>
                                         <button
                                             onClick={() => playReferenceAudio(feedback._id)}
@@ -212,7 +212,7 @@ const Feedback: React.FC = () => {
                                             ) : (
                                                 <>
                                                     <Play size={18} />
-                                                    Play Reference Audio
+                                                    Play Correction Audio
                                                 </>
                                             )}
                                         </button>

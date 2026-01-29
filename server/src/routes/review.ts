@@ -54,15 +54,25 @@ const isAdmin = async (req: Request, res: Response, next: NextFunction): Promise
 // GET: All students with their activity counts
 router.get('/review/students', authMiddleware, isAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
-        const students = await User.find({ role: 'student' }).select('name email');
+        // Filter date - only show students registered from today onwards (2026-01-29)
+        const filterDate = new Date('2026-01-29T00:00:00.000Z');
         
-        // Get activity counts for each student
+        const students = await User.find({ 
+            role: 'student',
+            createdAt: { $gte: filterDate }
+        }).select('name email');
+        
+        // Get activity counts for each student (only recent activities)
         const studentsWithCounts = await Promise.all(
             students.map(async (student: any) => {
-                const activityCount = await ActivityLog.countDocuments({ userId: student._id });
+                const activityCount = await ActivityLog.countDocuments({ 
+                    userId: student._id,
+                    createdAt: { $gte: filterDate }
+                });
                 const pendingComments = await Comment.countDocuments({
                     studentId: student._id,
-                    status: 'pending'
+                    status: 'pending',
+                    createdAt: { $gte: filterDate }
                 });
                 return {
                     _id: student._id,
@@ -73,11 +83,60 @@ router.get('/review/students', authMiddleware, isAdmin, async (req: Request, res
                 };
             })
         );
+        
+        // Only return students who have recent activities
+        const activeStudents = studentsWithCounts.filter(student => student.activityCount > 0);
 
-        res.json(studentsWithCounts);
+        res.json(activeStudents);
     } catch (err) {
         logger.error('Error fetching students:', err);
         res.status(500).json({ error: 'Failed to fetch students' });
+    }
+});
+
+// GET: All admins with their activity counts (for admin review)
+router.get('/review/admins', authMiddleware, isAdmin, async (req: Request, res: Response): Promise<void> => {
+    try {
+        const admins = await User.find({ role: 'admin' }).select('name email');
+        
+        // Filter date - only show comments from today onwards (2026-01-29)
+        const filterDate = new Date('2026-01-29T00:00:00.000Z');
+        
+        // Get comment counts for each admin (their feedback activity)
+        const adminsWithCounts = await Promise.all(
+            admins.map(async (admin: any) => {
+                const commentCount = await Comment.countDocuments({ 
+                    adminId: admin._id,
+                    createdAt: { $gte: filterDate }
+                });
+                const pendingComments = await Comment.countDocuments({
+                    adminId: admin._id,
+                    status: 'pending',
+                    createdAt: { $gte: filterDate }
+                });
+                const reviewedComments = await Comment.countDocuments({
+                    adminId: admin._id,
+                    status: 'reviewed',
+                    createdAt: { $gte: filterDate }
+                });
+                return {
+                    _id: admin._id,
+                    name: admin.name,
+                    email: admin.email,
+                    commentCount,
+                    pendingComments,
+                    reviewedComments,
+                };
+            })
+        );
+        
+        // Only return admins who have recent comments
+        const activeAdmins = adminsWithCounts.filter(admin => admin.commentCount > 0);
+
+        res.json(activeAdmins);
+    } catch (err) {
+        logger.error('Error fetching admins:', err);
+        res.status(500).json({ error: 'Failed to fetch admins' });
     }
 });
 
@@ -86,8 +145,14 @@ router.get('/review/students/:studentId/activities', authMiddleware, isAdmin, as
     try {
         const { studentId } = req.params;
         const { limit = 10, skip = 0 } = req.query;
+        
+        // Filter date - only show activities from today onwards (2026-01-29)
+        const filterDate = new Date('2026-01-29T00:00:00.000Z');
 
-        const activities = await ActivityLog.find({ userId: studentId })
+        const activities = await ActivityLog.find({ 
+            userId: studentId,
+            createdAt: { $gte: filterDate }
+        })
             .sort({ createdAt: -1 })
             .limit(Number(limit))
             .skip(Number(skip));
@@ -111,8 +176,11 @@ router.get('/review/students/:studentId/activities', authMiddleware, isAdmin, as
                 };
             })
         );
-
-        const total = await ActivityLog.countDocuments({ userId: studentId });
+        
+        const total = await ActivityLog.countDocuments({ 
+            userId: studentId,
+            createdAt: { $gte: filterDate }
+        });
 
         res.json({
             activities: activitiesWithComments,
@@ -121,6 +189,40 @@ router.get('/review/students/:studentId/activities', authMiddleware, isAdmin, as
     } catch (err) {
         logger.error('Error fetching student activities:', err);
         res.status(500).json({ error: 'Failed to fetch activities' });
+    }
+});
+
+// GET: Comments by a specific admin for review by other admins
+router.get('/review/admins/:adminId/comments', authMiddleware, isAdmin, async (req: Request, res: Response): Promise<void> => {
+    try {
+        const { adminId } = req.params;
+        const { limit = 20, skip = 0 } = req.query;
+        
+        // Filter date - only show comments from today onwards (2026-01-29)
+        const filterDate = new Date('2026-01-29T00:00:00.000Z');
+
+        const comments = await Comment.find({ 
+            adminId,
+            createdAt: { $gte: filterDate }
+        })
+            .sort({ createdAt: -1 })
+            .limit(Number(limit))
+            .skip(Number(skip))
+            .populate('studentId', 'name email')
+            .populate('activityId', 'title textContent createdAt');
+
+        const total = await Comment.countDocuments({ 
+            adminId,
+            createdAt: { $gte: filterDate }
+        });
+
+        res.json({
+            comments,
+            total,
+        });
+    } catch (err) {
+        logger.error('Error fetching admin comments:', err);
+        res.status(500).json({ error: 'Failed to fetch admin comments' });
     }
 });
 
@@ -166,8 +268,14 @@ router.post('/review/comments', authMiddleware, isAdmin, upload.single('referenc
 router.get('/review/comments/:activityId', authMiddleware, isAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
         const { activityId } = req.params;
+        
+        // Filter date - only show comments from today onwards (2026-01-29)
+        const filterDate = new Date('2026-01-29T00:00:00.000Z');
 
-        const comments = await Comment.find({ activityId })
+        const comments = await Comment.find({ 
+            activityId,
+            createdAt: { $gte: filterDate }
+        })
             .sort({ createdAt: -1 })
             .populate('adminId', 'name');
 
@@ -196,7 +304,7 @@ router.put('/review/comments/:commentId', authMiddleware, isAdmin, async (req: R
             return;
         }
 
-        logger.info(`Admin ${user._id} updated comment ${commentId}`);
+        logger.info(`Admin ${user._id} updated comment ${commentId} (originally by ${comment.adminId})`);
         res.json(comment);
     } catch (err) {
         logger.error('Error updating comment:', err);
@@ -204,20 +312,23 @@ router.put('/review/comments/:commentId', authMiddleware, isAdmin, async (req: R
     }
 });
 
-// DELETE: Delete a comment
+// DELETE: Delete a comment (any admin can delete any comment)
 router.delete('/review/comments/:commentId', authMiddleware, isAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
         const { commentId } = req.params;
         const user = (req as any).user;
 
-        const comment = await Comment.findByIdAndDelete(commentId);
+        const comment = await Comment.findById(commentId).populate('adminId', 'name');
 
         if (!comment) {
             res.status(404).json({ error: 'Comment not found' });
             return;
         }
 
-        logger.info(`Admin ${user._id} deleted comment ${commentId}`);
+        const originalAdminName = (comment.adminId as any)?.name || 'Unknown';
+        await Comment.findByIdAndDelete(commentId);
+
+        logger.info(`Admin ${user._id} (${user.name}) deleted comment ${commentId} (originally by ${originalAdminName})`);
         res.json({ message: 'Comment deleted' });
     } catch (err) {
         logger.error('Error deleting comment:', err);
@@ -291,8 +402,14 @@ router.get('/student/feedback', authMiddleware, async (req: Request, res: Respon
     try {
         const user = (req as any).user;
         const studentId = user._id;
+        
+        // Filter date - only show comments from today onwards (2026-01-29)
+        const filterDate = new Date('2026-01-29T00:00:00.000Z');
 
-        const comments = await Comment.find({ studentId })
+        const comments = await Comment.find({ 
+            studentId,
+            createdAt: { $gte: filterDate }
+        })
             .populate('adminId', 'name')
             .populate('activityId', 'title textContent createdAt')
             .sort({ createdAt: -1 });
@@ -307,7 +424,13 @@ router.get('/student/feedback', authMiddleware, async (req: Request, res: Respon
 // GET: Review queue - all pending comments
 router.get('/review/queue', authMiddleware, isAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
-        const pendingComments = await Comment.find({ status: 'pending' })
+        // Filter date - only show comments from today onwards (2026-01-29)
+        const filterDate = new Date('2026-01-29T00:00:00.000Z');
+        
+        const pendingComments = await Comment.find({ 
+            status: 'pending',
+            createdAt: { $gte: filterDate }
+        })
             .populate('studentId', 'name')
             .populate('activityId', 'title')
             .sort({ createdAt: -1 });

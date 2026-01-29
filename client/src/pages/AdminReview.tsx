@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { api } from '../services/api'
-import { Play, Pause, Trash2, MessageSquare, CheckCircle, Mic, Square } from 'lucide-react'
+import { Play, Pause, Trash2, MessageSquare, CheckCircle, Mic, Square, Users, UserCog } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { format } from 'date-fns'
 
@@ -10,6 +10,15 @@ interface Student {
     email: string
     activityCount: number
     pendingComments: number
+}
+
+interface Admin {
+    _id: string
+    name: string
+    email: string
+    commentCount: number
+    pendingComments: number
+    reviewedComments: number
 }
 
 interface Activity {
@@ -39,14 +48,29 @@ interface Comment {
         _id: string
         name: string
     }
+    studentId?: {
+        _id: string
+        name: string
+        email: string
+    }
+    activityId?: {
+        _id: string
+        title: string
+        textContent: string
+        createdAt: string
+    }
 }
 
 const AdminReview: React.FC = () => {
+    const [viewMode, setViewMode] = useState<'students' | 'admins'>('students')
     const [students, setStudents] = useState<Student[]>([])
+    const [admins, setAdmins] = useState<Admin[]>([])
     const [selectedStudent, setSelectedStudent] = useState<Student | null>(null)
+    const [selectedAdmin, setSelectedAdmin] = useState<Admin | null>(null)
     const [activities, setActivities] = useState<Activity[]>([])
     const [selectedActivity, setSelectedActivity] = useState<Activity | null>(null)
     const [comments, setComments] = useState<Comment[]>([])
+    const [adminComments, setAdminComments] = useState<Comment[]>([])
     const [newComment, setNewComment] = useState('')
     const [loading, setLoading] = useState(false)
     const [activitiesLoading, setActivitiesLoading] = useState(false)
@@ -76,8 +100,12 @@ const AdminReview: React.FC = () => {
 
     // Fetch all students
     useEffect(() => {
-        fetchStudents()
-    }, [])
+        if (viewMode === 'students') {
+            fetchStudents()
+        } else {
+            fetchAdmins()
+        }
+    }, [viewMode])
 
     const fetchStudents = async () => {
         setLoading(true)
@@ -86,6 +114,18 @@ const AdminReview: React.FC = () => {
             setStudents(res.data)
         } catch (err: any) {
             toast.error('Failed to fetch students')
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const fetchAdmins = async () => {
+        setLoading(true)
+        try {
+            const res = await api.get('/admin/review/admins')
+            setAdmins(res.data)
+        } catch (err: any) {
+            toast.error('Failed to fetch admins')
         } finally {
             setLoading(false)
         }
@@ -105,6 +145,20 @@ const AdminReview: React.FC = () => {
         }
     }
 
+    const fetchAdminComments = async (adminId: string) => {
+        setCommentsLoading(true)
+        try {
+            const res = await api.get(`/admin/review/admins/${adminId}/comments`, {
+                params: { limit: 20, skip: 0 },
+            })
+            setAdminComments(res.data.comments)
+        } catch (err: any) {
+            toast.error('Failed to fetch admin comments')
+        } finally {
+            setCommentsLoading(false)
+        }
+    }
+
     const fetchComments = async (activityId: string) => {
         setCommentsLoading(true)
         try {
@@ -119,10 +173,21 @@ const AdminReview: React.FC = () => {
 
     const handleSelectStudent = (student: Student) => {
         setSelectedStudent(student)
+        setSelectedAdmin(null)
         setCurrentPage(1)
         setSelectedActivity(null)
         setComments([])
+        setAdminComments([])
         fetchActivities(student._id)
+    }
+
+    const handleSelectAdmin = (admin: Admin) => {
+        setSelectedAdmin(admin)
+        setSelectedStudent(null)
+        setSelectedActivity(null)
+        setComments([])
+        setActivities([])
+        fetchAdminComments(admin._id)
     }
 
     const handleSelectActivity = (activity: Activity) => {
@@ -168,6 +233,9 @@ const AdminReview: React.FC = () => {
             if (selectedActivity) {
                 fetchComments(selectedActivity._id)
             }
+            if (selectedAdmin) {
+                fetchAdminComments(selectedAdmin._id)
+            }
         } catch (err: any) {
             toast.error('Failed to delete comment')
         }
@@ -179,6 +247,9 @@ const AdminReview: React.FC = () => {
             toast.success('Comment status updated')
             if (selectedActivity) {
                 fetchComments(selectedActivity._id)
+            }
+            if (selectedAdmin) {
+                fetchAdminComments(selectedAdmin._id)
             }
         } catch (err: any) {
             toast.error('Failed to update comment')
@@ -337,46 +408,104 @@ const AdminReview: React.FC = () => {
             <div className="bg-white shadow-sm border-b">
                 <div className="max-w-7xl mx-auto px-4 py-4">
                     <h1 className="text-3xl font-bold text-gray-900">Admin Review Center</h1>
-                    <p className="text-gray-600 mt-1">Review student recordings and provide feedback</p>
+                    <p className="text-gray-600 mt-1">Review student recordings and admin feedback</p>
+                    
+                    {/* View Mode Toggle */}
+                    <div className="mt-4 flex gap-2">
+                        <button
+                            onClick={() => setViewMode('students')}
+                            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                                viewMode === 'students'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                        >
+                            <Users size={18} />
+                            Review Students
+                        </button>
+                        <button
+                            onClick={() => setViewMode('admins')}
+                            className={`px-4 py-2 rounded-lg font-medium transition-colors flex items-center gap-2 ${
+                                viewMode === 'admins'
+                                    ? 'bg-blue-600 text-white'
+                                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                            }`}
+                        >
+                            <UserCog size={18} />
+                            Review Admins
+                        </button>
+                    </div>
                 </div>
             </div>
 
             <div className="max-w-7xl mx-auto px-4 py-6 grid grid-cols-1 md:grid-cols-4 gap-6">
-                {/* Students List */}
+                {/* Students/Admins List */}
                 <div className="md:col-span-1 bg-white rounded-lg shadow-md border border-gray-200 p-4 h-fit">
-                    <h2 className="text-lg font-semibold text-gray-800 mb-4">Students</h2>
-                    {loading && !students.length ? (
+                    <h2 className="text-lg font-semibold text-gray-800 mb-4">
+                        {viewMode === 'students' ? 'Students' : 'Admins'}
+                    </h2>
+                    {loading && (viewMode === 'students' ? !students.length : !admins.length) ? (
                         <p className="text-gray-500 text-sm">Loading...</p>
                     ) : (
                         <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                            {students.map((student) => (
-                                <button
-                                    key={student._id}
-                                    onClick={() => handleSelectStudent(student)}
-                                    className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
-                                        selectedStudent?._id === student._id
-                                            ? 'bg-blue-100 border-l-4 border-blue-600'
-                                            : 'hover:bg-gray-100'
-                                    }`}
-                                >
-                                    <div className="font-medium text-sm text-gray-900">{student.name}</div>
-                                    <div className="text-xs text-gray-500">{student.email}</div>
-                                    <div className="flex gap-2 mt-1 text-xs">
-                                        <span className="bg-gray-100 px-2 py-1 rounded">{student.activityCount} activities</span>
-                                        {student.pendingComments > 0 && (
-                                            <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded">
-                                                {student.pendingComments} pending
-                                            </span>
-                                        )}
-                                    </div>
-                                </button>
-                            ))}
+                            {viewMode === 'students' ? (
+                                students.map((student) => (
+                                    <button
+                                        key={student._id}
+                                        onClick={() => handleSelectStudent(student)}
+                                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                            selectedStudent?._id === student._id
+                                                ? 'bg-blue-100 border-l-4 border-blue-600'
+                                                : 'hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        <div className="font-medium text-sm text-gray-900">{student.name}</div>
+                                        <div className="text-xs text-gray-500">{student.email}</div>
+                                        <div className="flex gap-2 mt-1 text-xs">
+                                            <span className="bg-gray-100 px-2 py-1 rounded">{student.activityCount} activities</span>
+                                            {student.pendingComments > 0 && (
+                                                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                                                    {student.pendingComments} pending
+                                                </span>
+                                            )}
+                                        </div>
+                                    </button>
+                                ))
+                            ) : (
+                                admins.map((admin) => (
+                                    <button
+                                        key={admin._id}
+                                        onClick={() => handleSelectAdmin(admin)}
+                                        className={`w-full text-left px-3 py-2 rounded-lg transition-colors ${
+                                            selectedAdmin?._id === admin._id
+                                                ? 'bg-blue-100 border-l-4 border-blue-600'
+                                                : 'hover:bg-gray-100'
+                                        }`}
+                                    >
+                                        <div className="font-medium text-sm text-gray-900">{admin.name}</div>
+                                        <div className="text-xs text-gray-500">{admin.email}</div>
+                                        <div className="flex gap-2 mt-1 text-xs flex-wrap">
+                                            <span className="bg-gray-100 px-2 py-1 rounded">{admin.commentCount} comments</span>
+                                            {admin.pendingComments > 0 && (
+                                                <span className="bg-orange-100 text-orange-800 px-2 py-1 rounded">
+                                                    {admin.pendingComments} pending
+                                                </span>
+                                            )}
+                                            {admin.reviewedComments > 0 && (
+                                                <span className="bg-green-100 text-green-800 px-2 py-1 rounded">
+                                                    {admin.reviewedComments} reviewed
+                                                </span>
+                                            )}
+                                        </div>
+                                    </button>
+                                ))
+                            )}
                         </div>
                     )}
                 </div>
 
-                {/* Activities List */}
-                {selectedStudent && (
+                {/* Activities List (for students only) */}
+                {selectedStudent && viewMode === 'students' && (
                     <div className="md:col-span-1 bg-white rounded-lg shadow-md border border-gray-200 p-4 h-fit">
                         <h2 className="text-lg font-semibold text-gray-800 mb-4">
                             {selectedStudent.name}'s Activities
@@ -657,7 +786,7 @@ const AdminReview: React.FC = () => {
                 )}
 
                 {/* Empty State */}
-                {!selectedActivity && selectedStudent && (
+                {!selectedActivity && selectedStudent && viewMode === 'students' && (
                     <div className="md:col-span-2 bg-white rounded-lg shadow-md border border-gray-200 p-8 flex items-center justify-center">
                         <div className="text-center">
                             <MessageSquare size={48} className="text-gray-300 mx-auto mb-4" />
@@ -666,11 +795,124 @@ const AdminReview: React.FC = () => {
                     </div>
                 )}
 
-                {!selectedStudent && (
+                {/* Admin Comments View */}
+                {selectedAdmin && viewMode === 'admins' && (
+                    <div className="md:col-span-3 space-y-4">
+                        <div className="bg-white rounded-lg shadow-md border border-gray-200 p-4">
+                            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                                {selectedAdmin.name}'s Feedback Comments
+                            </h2>
+                            
+                            {commentsLoading ? (
+                                <div className="space-y-3">
+                                    {[1,2,3].map((i) => (
+                                        <div key={i} className="h-24 rounded-lg bg-gray-100 animate-pulse" />
+                                    ))}
+                                </div>
+                            ) : adminComments.length === 0 ? (
+                                <div className="text-center py-8">
+                                    <MessageSquare size={48} className="text-gray-300 mx-auto mb-4" />
+                                    <p className="text-gray-500">No comments yet</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-3 max-h-[600px] overflow-y-auto">
+                                    {adminComments.map((comment) => (
+                                        <div key={comment._id} className="border border-gray-200 rounded-lg p-4 hover:bg-gray-50">
+                                            <div className="flex items-start justify-between mb-2">
+                                                <div className="flex-1">
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="text-xs text-gray-500">
+                                                            For: <span className="font-medium text-gray-700">{comment.studentId?.name}</span>
+                                                        </span>
+                                                        <span className={`px-2 py-0.5 text-xs rounded-full ${
+                                                            comment.status === 'pending' ? 'bg-orange-100 text-orange-800' :
+                                                            comment.status === 'reviewed' ? 'bg-green-100 text-green-800' :
+                                                            'bg-blue-100 text-blue-800'
+                                                        }`}>
+                                                            {comment.status}
+                                                        </span>
+                                                    </div>
+                                                    {comment.activityId && (
+                                                        <div className="text-xs text-gray-500 mb-2">
+                                                            Activity: <span className="font-medium">{comment.activityId.title}</span>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                                <button
+                                                    onClick={() => handleDeleteComment(comment._id)}
+                                                    className="text-red-500 hover:text-red-700 transition-colors"
+                                                    title="Delete comment"
+                                                >
+                                                    <Trash2 size={16} />
+                                                </button>
+                                            </div>
+                                            
+                                            <p className="text-gray-700 text-sm mb-2">{comment.text}</p>
+                                            
+                                            {comment.referenceAudio && (
+                                                <div className="mt-2">
+                                                    <button
+                                                        onClick={() => playReferenceAudio(comment._id)}
+                                                        className="flex items-center gap-2 text-blue-600 hover:text-blue-700 text-sm"
+                                                    >
+                                                        {playingAudioId === comment._id ? (
+                                                            <>
+                                                                <Pause size={16} />
+                                                                Playing...
+                                                            </>
+                                                        ) : (
+                                                            <>
+                                                                <Play size={16} />
+                                                                Play Reference Audio
+                                                            </>
+                                                        )}
+                                                    </button>
+                                                </div>
+                                            )}
+                                            
+                                            <div className="flex items-center justify-between mt-3 pt-3 border-t border-gray-100">
+                                                <span className="text-xs text-gray-500">
+                                                    {format(new Date(comment.createdAt), 'MMM dd, yyyy HH:mm')}
+                                                </span>
+                                                <div className="flex gap-2">
+                                                    <button
+                                                        onClick={() => handleUpdateCommentStatus(comment._id, 'reviewed')}
+                                                        disabled={comment.status === 'reviewed'}
+                                                        className="text-xs px-3 py-1 bg-green-100 text-green-700 rounded hover:bg-green-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        Mark Reviewed
+                                                    </button>
+                                                    <button
+                                                        onClick={() => handleUpdateCommentStatus(comment._id, 'resolved')}
+                                                        disabled={comment.status === 'resolved'}
+                                                        className="text-xs px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                                                    >
+                                                        Mark Resolved
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                )}
+
+                {!selectedStudent && !selectedAdmin && viewMode === 'students' && (
                     <div className="md:col-span-3 bg-white rounded-lg shadow-md border border-gray-200 p-8 flex items-center justify-center">
                         <div className="text-center">
                             <MessageSquare size={48} className="text-gray-300 mx-auto mb-4" />
                             <p className="text-gray-500 text-lg">Select a student to get started</p>
+                        </div>
+                    </div>
+                )}
+                
+                {!selectedAdmin && viewMode === 'admins' && (
+                    <div className="md:col-span-3 bg-white rounded-lg shadow-md border border-gray-200 p-8 flex items-center justify-center">
+                        <div className="text-center">
+                            <UserCog size={48} className="text-gray-300 mx-auto mb-4" />
+                            <p className="text-gray-500 text-lg">Select an admin to review their work</p>
                         </div>
                     </div>
                 )}
