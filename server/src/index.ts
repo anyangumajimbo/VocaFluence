@@ -84,8 +84,35 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Add CORS headers for static files (uploads)
+app.use((req, res, next) => {
+    if (req.path.startsWith('/uploads')) {
+        res.header('Access-Control-Allow-Origin', '*');
+        res.header('Access-Control-Allow-Methods', 'GET, HEAD, OPTIONS');
+        res.header('Access-Control-Allow-Headers', 'Content-Type');
+        res.header('Cross-Origin-Resource-Sharing', 'true');
+        
+        // Set proper MIME types for audio files
+        if (req.path.includes('reference-audio')) {
+            if (req.path.endsWith('.webm')) {
+                res.type('audio/webm');
+            } else if (req.path.endsWith('.mp3')) {
+                res.type('audio/mpeg');
+            } else if (req.path.endsWith('.wav')) {
+                res.type('audio/wav');
+            } else if (req.path.endsWith('.m4a')) {
+                res.type('audio/mp4');
+            }
+        }
+    }
+    next();
+});
+
 // Static file serving for uploads
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
+    maxAge: '1d',
+    etag: false
+}));
 
 // Use morgan for HTTP request logging
 app.use(morgan('combined', {

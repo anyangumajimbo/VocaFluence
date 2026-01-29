@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { scriptsAPI } from '../services/api'
 import {
@@ -8,7 +8,11 @@ import {
     Trash2,
     Search,
     Save,
-    X
+    X,
+    Upload,
+    Mic,
+    StopCircle,
+    Volume2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -47,6 +51,15 @@ export const AdminScripts: React.FC = () => {
     const [selectedDifficulty, setSelectedDifficulty] = useState<string>('')
     const [currentPage, setCurrentPage] = useState(1)
     const [totalPages, setTotalPages] = useState(1)
+    
+    // Reference audio states
+    const [referenceAudioFile, setReferenceAudioFile] = useState<File | null>(null)
+    const [referenceAudioURL, setReferenceAudioURL] = useState<string>('')
+    const [isRecordingRef, setIsRecordingRef] = useState(false)
+    const [audioStream, setAudioStream] = useState<MediaStream | null>(null)
+    const mediaRecorderRef = useRef<MediaRecorder | null>(null)
+    const audioChunksRef = useRef<Blob[]>([])
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     const {
         register,
@@ -59,6 +72,92 @@ export const AdminScripts: React.FC = () => {
     useEffect(() => {
         fetchScripts()
     }, [currentPage, selectedLanguage, selectedDifficulty])
+
+    useEffect(() => {
+        // Cleanup audio stream when component unmounts or form closes
+        return () => {
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => track.stop())
+            }
+        }
+    }, [audioStream])
+
+    // Start recording reference audio
+    const startRecordingReference = async () => {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+            setAudioStream(stream)
+            setIsRecordingRef(true)
+            audioChunksRef.current = []
+
+            const mediaRecorder = new MediaRecorder(stream)
+            mediaRecorderRef.current = mediaRecorder
+
+            mediaRecorder.ondataavailable = (event) => {
+                if (event.data.size > 0) {
+                    audioChunksRef.current.push(event.data)
+                }
+            }
+
+            mediaRecorder.onstop = () => {
+                const audioBlob = new Blob(audioChunksRef.current, { type: 'audio/webm' })
+                const file = new File([audioBlob], 'reference-audio.webm', { type: 'audio/webm' })
+                setReferenceAudioFile(file)
+                const url = URL.createObjectURL(audioBlob)
+                setReferenceAudioURL(url)
+            }
+
+            mediaRecorder.start()
+            toast.success('Recording reference audio...')
+        } catch (error) {
+            console.error('Error starting recording:', error)
+            toast.error('Failed to access microphone')
+        }
+    }
+
+    // Stop recording reference audio
+    const stopRecordingReference = () => {
+        if (mediaRecorderRef.current && isRecordingRef) {
+            mediaRecorderRef.current.stop()
+            setIsRecordingRef(false)
+            if (audioStream) {
+                audioStream.getTracks().forEach(track => track.stop())
+                setAudioStream(null)
+            }
+            toast.success('Recording stopped')
+        }
+    }
+
+    // Handle file selection
+    const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+        const file = event.target.files?.[0]
+        if (file) {
+            if (!file.type.startsWith('audio/')) {
+                toast.error('Please select an audio file')
+                return
+            }
+            if (file.size > 10 * 1024 * 1024) { // 10MB limit
+                toast.error('File size must be less than 10MB')
+                return
+            }
+            setReferenceAudioFile(file)
+            const url = URL.createObjectURL(file)
+            setReferenceAudioURL(url)
+            toast.success('Audio file selected')
+        }
+    }
+
+    // Clear reference audio
+    const clearReferenceAudio = () => {
+        setReferenceAudioFile(null)
+        if (referenceAudioURL) {
+            URL.revokeObjectURL(referenceAudioURL)
+        }
+        setReferenceAudioURL('')
+        if (fileInputRef.current) {
+            fileInputRef.current.value = ''
+        }
+    }
 
     const fetchScripts = async () => {
         try {
@@ -95,23 +194,30 @@ export const AdminScripts: React.FC = () => {
 
     const onSubmit = async (data: ScriptForm) => {
         try {
-            const scriptData = {
-                title: data.title,
-                textContent: data.textContent,
-                language: data.language,
-                difficulty: data.difficulty,
-                tags: data.tags ? data.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0) : []
-            };
+            const formData = new FormData()
+            formData.append('title', data.title)
+            formData.append('textContent', data.textContent)
+            formData.append('language', data.language)
+            formData.append('difficulty', data.difficulty)
+            
+            const tagsArray = data.tags ? data.tags.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0) : []
+            formData.append('tags', JSON.stringify(tagsArray))
+
+            // Add reference audio if present
+            if (referenceAudioFile) {
+                formData.append('referenceAudio', referenceAudioFile)
+            }
 
             if (editingScript) {
-                await scriptsAPI.update(editingScript._id, scriptData);
+                await scriptsAPI.update(editingScript._id, formData);
                 toast.success('Script updated successfully');
             } else {
-                await scriptsAPI.create(scriptData);
+                await scriptsAPI.create(formData);
                 toast.success('Script created successfully');
             }
 
             reset();
+            clearReferenceAudio();
             setShowForm(false);
             setEditingScript(null);
             fetchScripts();
@@ -148,6 +254,7 @@ export const AdminScripts: React.FC = () => {
     const handleCancel = () => {
         setShowForm(false)
         setEditingScript(null)
+        clearReferenceAudio()
         reset()
     }
 
@@ -313,6 +420,125 @@ export const AdminScripts: React.FC = () => {
                             {errors.textContent && (
                                 <p className="mt-1 text-sm text-error-600">{errors.textContent.message}</p>
                             )}
+                        </div>
+
+                        {/* Reference Audio Upload Section */}
+                        <div className="border-t pt-4">
+                            <label className="block text-sm font-medium text-gray-700 mb-3">
+                                Reference Audio (Optional)
+                                <span className="block text-xs text-gray-500 mt-1">
+                                    Upload or record a reference pronunciation for students to listen to
+                                </span>
+                            </label>
+
+                            <div className="space-y-3">
+                                {/* Upload and Record buttons */}
+                                <div className="flex flex-wrap gap-3">
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        className="flex items-center px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                                        disabled={isRecordingRef}
+                                    >
+                                        <Upload className="h-4 w-4 mr-2" />
+                                        Upload Audio File
+                                    </button>
+
+                                    {!isRecordingRef ? (
+                                        <button
+                                            type="button"
+                                            onClick={startRecordingReference}
+                                            className="flex items-center px-4 py-2 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition-colors"
+                                            disabled={!!referenceAudioFile}
+                                        >
+                                            <Mic className="h-4 w-4 mr-2" />
+                                            Record Audio
+                                        </button>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={stopRecordingReference}
+                                            className="flex items-center px-4 py-2 bg-error-600 text-white rounded-lg hover:bg-error-700 transition-colors animate-pulse"
+                                        >
+                                            <StopCircle className="h-4 w-4 mr-2" />
+                                            Stop Recording
+                                        </button>
+                                    )}
+
+                                    {referenceAudioFile && (
+                                        <button
+                                            type="button"
+                                            onClick={clearReferenceAudio}
+                                            className="flex items-center px-4 py-2 border border-error-300 text-error-600 rounded-lg hover:bg-error-50 transition-colors"
+                                        >
+                                            <X className="h-4 w-4 mr-2" />
+                                            Clear Audio
+                                        </button>
+                                    )}
+                                </div>
+
+                                {/* Hidden file input */}
+                                <input
+                                    ref={fileInputRef}
+                                    type="file"
+                                    accept="audio/*"
+                                    onChange={handleFileSelect}
+                                    className="hidden"
+                                />
+
+                                {/* Audio preview */}
+                                {referenceAudioURL && (
+                                    <div className="p-4 bg-primary-50 border border-primary-200 rounded-lg">
+                                        <div className="flex items-center justify-between mb-2">
+                                            <div className="flex items-center text-sm text-primary-700">
+                                                <Volume2 className="h-4 w-4 mr-2" />
+                                                <span className="font-medium">
+                                                    {referenceAudioFile?.name || 'Recorded Audio'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                        <audio
+                                            controls
+                                            controlsList="nodownload"
+                                            preload="auto"
+                                            style={{
+                                                width: '100%',
+                                                outline: 'none',
+                                            }}
+                                            onError={(e: any) => {
+                                                const audio = e.target;
+                                                const errorCode = audio?.error?.code;
+                                                const errorCodes: {[key: number]: string} = {
+                                                    1: 'MEDIA_ERR_ABORTED',
+                                                    2: 'MEDIA_ERR_NETWORK',
+                                                    3: 'MEDIA_ERR_DECODE - File may be corrupted',
+                                                    4: 'MEDIA_ERR_SRC_NOT_SUPPORTED - Format not supported'
+                                                };
+                                                const errMsg = errorCodes[errorCode] || 'Unknown error';
+                                                console.error('Audio preview error:', {
+                                                    url: referenceAudioURL,
+                                                    errorType: errMsg,
+                                                    code: errorCode,
+                                                    fileName: referenceAudioFile?.name
+                                                });
+                                                toast.error(`Preview failed: ${errMsg}. Try MP3 or WAV format.`);
+                                            }}
+                                        >
+                                            <source src={referenceAudioURL} type={referenceAudioFile?.type || "audio/webm"} />
+                                            Your browser does not support the audio element.
+                                        </audio>
+                                    </div>
+                                )}
+
+                                {isRecordingRef && (
+                                    <div className="p-3 bg-error-50 border border-error-200 rounded-lg">
+                                        <div className="flex items-center text-sm text-error-700">
+                                            <div className="h-3 w-3 bg-error-600 rounded-full mr-2 animate-pulse" />
+                                            Recording in progress...
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
                         </div>
 
                         <div className="flex justify-end space-x-3">

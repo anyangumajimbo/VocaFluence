@@ -14,7 +14,8 @@ import {
     Target,
     ZoomIn,
     ZoomOut,
-    ArrowLeft
+    ArrowLeft,
+    Volume2
 } from 'lucide-react'
 import toast from 'react-hot-toast'
 
@@ -134,6 +135,13 @@ export const Practice: React.FC = () => {
                 const diffA = difficultyOrder[a.difficulty.toLowerCase()] || 999
                 const diffB = difficultyOrder[b.difficulty.toLowerCase()] || 999
                 return diffA - diffB
+            })
+            
+            // Debug: Log scripts with reference audio
+            sortedScripts.forEach((script: Script) => {
+                if (script.referenceAudioURL) {
+                    console.log(`Script "${script.title}" has reference audio:`, script.referenceAudioURL);
+                }
             })
             
             setScripts(sortedScripts)
@@ -435,7 +443,7 @@ export const Practice: React.FC = () => {
 
                         {/* Start Recording Button - At Top */}
                         {!isRecording && !audioBlob && (
-                            <div className="flex justify-center mb-6">
+                            <div className="flex flex-col items-center space-y-4 mb-6">
                                 <button
                                     onClick={startRecording}
                                     className="btn-primary flex items-center text-lg py-3 px-6"
@@ -444,6 +452,54 @@ export const Practice: React.FC = () => {
                                     <Mic className="h-6 w-6 mr-2" />
                                     Start Recording
                                 </button>
+
+                                {/* Reference Audio Player */}
+                                {selectedScript.referenceAudioURL && (
+                                    <div className="w-full max-w-md bg-primary-50 border-2 border-primary-200 rounded-lg p-4">
+                                        <div className="flex items-center mb-3">
+                                            <Volume2 className="h-5 w-5 text-primary-600 mr-2" />
+                                            <span className="text-sm font-medium text-primary-700">
+                                                Listen to Reference Audio First
+                                            </span>
+                                        </div>
+                                        <audio
+                                            key={selectedScript._id}
+                                            controls
+                                            controlsList="nodownload"
+                                            preload="auto"
+                                            style={{
+                                                width: '100%',
+                                                outline: 'none',
+                                            }}
+                                            onError={(e: any) => {
+                                                const audio = e.target;
+                                                const errorCode = audio?.error?.code;
+                                                const errorCodes: {[key: number]: string} = {
+                                                    1: 'MEDIA_ERR_ABORTED',
+                                                    2: 'MEDIA_ERR_NETWORK',
+                                                    3: 'MEDIA_ERR_DECODE',
+                                                    4: 'MEDIA_ERR_SRC_NOT_SUPPORTED - File format not supported. Please upload MP3 or WAV'
+                                                };
+                                                const errMsg = errorCodes[errorCode] || 'Unknown error';
+                                                console.error(`Audio Error for "${selectedScript.title}":`, {
+                                                    url: selectedScript.referenceAudioURL,
+                                                    errorCode,
+                                                    errorType: errMsg,
+                                                    fileSize: audio?.src ? 'Check if file is too large (>10MB)' : 'N/A'
+                                                });
+                                                toast.error(`Unable to play audio. Please re-upload as MP3 or WAV format.`);
+                                            }}
+                                        >
+                                            <source src={selectedScript.referenceAudioURL} type="audio/webm" />
+                                            <source src={selectedScript.referenceAudioURL} type="audio/mpeg" />
+                                            <source src={selectedScript.referenceAudioURL} type="audio/wav" />
+                                            Your browser does not support the audio element.
+                                        </audio>
+                                        <p className="text-xs text-primary-600 mt-2">
+                                            Listen to how the script should be pronounced before recording
+                                        </p>
+                                    </div>
+                                )}
                             </div>
                         )}
 
