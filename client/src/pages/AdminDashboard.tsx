@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { api } from '../services/api'
 import {
-    BarChart3,
     FileText,
     TrendingUp,
     Clock,
@@ -259,14 +258,6 @@ export const AdminDashboard: React.FC = () => {
                     >
                         <Users className="h-5 w-5 mr-2" />
                         Manage Users
-                    </button>
-
-                    <button
-                        onClick={() => navigate('/admin')}
-                        className="btn-secondary flex items-center justify-center hover:bg-gray-300 transition-colors duration-200"
-                    >
-                        <BarChart3 className="h-5 w-5 mr-2" />
-                        View Analytics
                     </button>
                 </div>
             </div>

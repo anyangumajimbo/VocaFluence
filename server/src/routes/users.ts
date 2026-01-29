@@ -158,18 +158,45 @@ router.get('/admin/dashboard', authMiddleware, adminMiddleware, async (req: Requ
     }
 });
 
-// Get user by ID (admin only)
+// Get user by ID (admin only) - with statistics
 router.get('/:id', authMiddleware, adminMiddleware, async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
         const { id } = req.params;
-        const user = await User.findById(id).select('-password');
+        const user = await User.findById(id).select('-password').lean();
 
         if (!user) {
             res.status(404).json({ message: 'User not found.' });
             return;
         }
 
-        res.json({ user });
+        // Get user's practice sessions count and average score
+        const practiceSessions = await PracticeSession.find({ userId: id });
+        const totalPracticeSessions = practiceSessions.length;
+        
+        const avgScore = practiceSessions.length > 0
+            ? practiceSessions.reduce((sum, session) => sum + session.score, 0) / practiceSessions.length
+            : 0;
+
+        // Get oral exam sessions count
+        const totalOralSessions = await OralExamSession.countDocuments({ user: id });
+
+        // Enhance user object with statistics
+        const userWithStats = {
+            ...user,
+            totalPracticeSessions,
+            totalOralSessions,
+            averageScore: Math.round(avgScore * 10) / 10,
+            streakDays: user.streakDays || 0,
+            longestStreak: user.longestStreak || 0,
+            stats: {
+                totalSessions: totalPracticeSessions + totalOralSessions,
+                avgScore: Math.round(avgScore * 10) / 10,
+                currentStreak: user.streakDays || 0,
+                maxStreak: user.longestStreak || 0
+            }
+        };
+
+        res.json({ user: userWithStats });
     } catch (error) {
         next(error);
     }
