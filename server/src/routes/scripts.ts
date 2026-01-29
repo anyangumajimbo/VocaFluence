@@ -50,6 +50,10 @@ router.get('/', async (req: Request, res: Response, next: NextFunction): Promise
         const { language, languages, difficulty, category, page = 1, limit = 12, fromDate } = req.query;
         const filter: any = {};
 
+        // Always filter to show only scripts from 2026-01-29 onwards (hide all old scripts)
+        const defaultFilterDate = new Date('2026-01-29T00:00:00.000Z');
+        filter.createdAt = { $gte: defaultFilterDate };
+
         // Support both single language and multiple languages (comma-separated)
         if (languages) {
             // Multiple languages as comma-separated string
@@ -65,11 +69,6 @@ router.get('/', async (req: Request, res: Response, next: NextFunction): Promise
         
         if (difficulty) filter.difficulty = difficulty;
         if (category) filter.category = category;
-        
-        // Filter by creation date if provided
-        if (fromDate) {
-            filter.createdAt = { $gte: new Date(fromDate as string) };
-        }
 
         // Calculate pagination
         const pageNum = Math.max(1, parseInt(page as string) || 1);

@@ -54,13 +54,19 @@ const isAdmin = async (req: Request, res: Response, next: NextFunction): Promise
 // GET: All students with their activity counts
 router.get('/review/students', authMiddleware, isAdmin, async (req: Request, res: Response): Promise<void> => {
     try {
-        // Filter date - only show students registered from today onwards (2026-01-29)
+        // Filter date - only show students registered from 2026-01-29 00:00:00 UTC onwards
         const filterDate = new Date('2026-01-29T00:00:00.000Z');
         
         const students = await User.find({ 
             role: 'student',
             createdAt: { $gte: filterDate }
-        }).select('name email');
+        }).select('name email createdAt');
+        
+        // If no students found with new registration date, return empty array
+        if (students.length === 0) {
+            res.json([]);
+            return;
+        }
         
         // Get activity counts for each student (only recent activities)
         const studentsWithCounts = await Promise.all(
@@ -84,10 +90,8 @@ router.get('/review/students', authMiddleware, isAdmin, async (req: Request, res
             })
         );
         
-        // Only return students who have recent activities
-        const activeStudents = studentsWithCounts.filter(student => student.activityCount > 0);
-
-        res.json(activeStudents);
+        // Return all newly registered students (including those without activities)
+        res.json(studentsWithCounts);
     } catch (err) {
         logger.error('Error fetching students:', err);
         res.status(500).json({ error: 'Failed to fetch students' });
