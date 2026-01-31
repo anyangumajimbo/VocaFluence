@@ -55,6 +55,29 @@ interface PracticeResult {
     pronunciationAnalysis?: PronunciationAnalysis;
 }
 
+// Helper function to get MIME type based on file extension
+const getAudioMimeType = (url: string | undefined): { url: string; type: string } | null => {
+    if (!url) return null;
+    
+    // If URL is relative, prepend the server URL
+    const serverUrl = window.location.hostname === 'localhost' 
+        ? 'http://localhost:5000' 
+        : window.location.origin;
+    const fullUrl = url.startsWith('http') ? url : `${serverUrl}${url}`;
+    
+    if (url.endsWith('.webm')) {
+        return { url: fullUrl, type: 'audio/webm' };
+    } else if (url.endsWith('.mp3')) {
+        return { url: fullUrl, type: 'audio/mpeg' };
+    } else if (url.endsWith('.wav')) {
+        return { url: fullUrl, type: 'audio/wav' };
+    } else if (url.endsWith('.m4a')) {
+        return { url: fullUrl, type: 'audio/mp4' };
+    }
+    // Default fallback for unknown types
+    return { url: fullUrl, type: 'audio/*' };
+};
+
 export const Practice: React.FC = () => {
     const { user } = useAuth()
     const navigate = useNavigate()
@@ -72,11 +95,14 @@ export const Practice: React.FC = () => {
     const [fontSize, setFontSize] = useState(16) // Font size in pixels
     const [selectedLanguage, setSelectedLanguage] = useState<string>(user?.preferredLanguages?.[0] || '')
     const [selectedDifficulty, setSelectedDifficulty] = useState<string>('')
+    const [transcriptFontSize, setTranscriptFontSize] = useState(16)
+    const [transcriptFontFamily, setTranscriptFontFamily] = useState<'sans' | 'serif' | 'mono'>('sans')
 
     const mediaRecorderRef = useRef<MediaRecorder | null>(null)
     const audioChunksRef = useRef<Blob[]>([])
     const timerRef = useRef<NodeJS.Timeout | null>(null)
     const audioRef = useRef<HTMLAudioElement | null>(null)
+    const referenceAudioRef = useRef<HTMLAudioElement | null>(null)
     const scriptTopRef = useRef<HTMLDivElement | null>(null)
 
     useEffect(() => {
@@ -100,6 +126,19 @@ export const Practice: React.FC = () => {
             }
         }
     }, [isRecording])
+
+    // Handle reference audio loading
+    useEffect(() => {
+        if (selectedScript?.referenceAudioURL) {
+            // Find the audio element on the page
+            const audioElement = document.querySelector('audio[controls]') as HTMLAudioElement;
+            if (audioElement) {
+                console.log('[AUDIO] Resetting audio element for:', selectedScript.referenceAudioURL);
+                // Reset the audio element to trigger fresh loading
+                audioElement.load();
+            }
+        }
+    }, [selectedScript?._id])
 
     const fetchScripts = async () => {
         try {
@@ -208,6 +247,23 @@ export const Practice: React.FC = () => {
             audioRef.current.pause()
             setIsPlaying(false)
         }
+    }
+
+    const playReferenceAudio = () => {
+        if (referenceAudioRef.current) {
+            referenceAudioRef.current.play()
+            return
+        }
+        toast.error('Reference audio is not available')
+    }
+
+    const playStudentAudio = () => {
+        if (audioRef.current && audioURL) {
+            audioRef.current.play()
+            setIsPlaying(true)
+            return
+        }
+        toast.error('Student recording is not available')
     }
 
     const submitPractice = async () => {
@@ -441,6 +497,96 @@ export const Practice: React.FC = () => {
                                 {selectedScript.language} • {selectedScript.difficulty}
                             </p>
                         </div>
+                        {/* Reference Audio Player - Always Visible */}
+                        {selectedScript.referenceAudioURL && (
+                            <div className="w-full max-w-2xl mx-auto bg-primary-50 border-2 border-primary-200 rounded-lg p-4 mb-6">
+                                <div className="flex items-center mb-3">
+                                    <Volume2 className="h-5 w-5 text-primary-600 mr-2" />
+                                    <span className="text-sm font-medium text-primary-700">
+                                        Reference Audio - Listen & Compare
+                                    </span>
+                                </div>
+                                {(() => {
+                                    const mimeInfo = getAudioMimeType(selectedScript.referenceAudioURL);
+                                    return (
+                                        <audio
+                                            key={selectedScript._id}
+                                            ref={referenceAudioRef}
+                                            src={mimeInfo?.url}
+                                            controls
+                                            controlsList="nodownload"
+                                            crossOrigin="anonymous"
+                                            preload="metadata"
+                                            style={{
+                                                width: '100%',
+                                                outline: 'none',
+                                            }}
+                                            onLoadStart={(e: any) => {
+                                                const audio = e.target as HTMLAudioElement;
+                                                const canPlay = audio && typeof audio.canPlayType === 'function' 
+                                                    ? audio.canPlayType(mimeInfo?.type || '') 
+                                                    : 'unknown';
+                                                console.log(`[AUDIO] Loading: ${selectedScript.referenceAudioURL}`, {
+                                                    mimeType: mimeInfo?.type,
+                                                    canPlayType: canPlay
+                                                });
+                                            }}
+                                            onLoadedMetadata={(e: any) => {
+                                                console.log(`[AUDIO] Metadata loaded for: ${selectedScript.referenceAudioURL}`);
+                                                console.log(`[AUDIO] Duration: ${(e.target as HTMLAudioElement).duration}s`);
+                                            }}
+                                            onCanPlay={() => {
+                                                console.log(`[AUDIO] Can play: ${selectedScript.referenceAudioURL}`);
+                                            }}
+                                            onPlay={() => {
+                                                console.log(`[AUDIO] Playing: ${selectedScript.referenceAudioURL}`);
+                                            }}
+                                            onError={(e: any) => {
+                                                const audio = e.target as HTMLAudioElement;
+                                                const errorCode = audio?.error?.code;
+                                                const errorMessage = audio?.error?.message;
+                                                const canPlay = audio && typeof audio.canPlayType === 'function'
+                                                    ? audio.canPlayType(mimeInfo?.type || '')
+                                                    : 'unknown';
+                                                const errorCodes: {[key: number]: string} = {
+                                                    1: 'MEDIA_ERR_ABORTED',
+                                                    2: 'MEDIA_ERR_NETWORK',
+                                                    3: 'MEDIA_ERR_DECODE',
+                                                    4: 'MEDIA_ERR_SRC_NOT_SUPPORTED'
+                                                };
+                                                const errMsg = errorCode ? errorCodes[errorCode] || 'Unknown error' : 'Unknown error';
+                                                console.error(`[AUDIO ERROR] for "${selectedScript.title}":`, {
+                                                    url: selectedScript.referenceAudioURL,
+                                                    errorCode: errorCode,
+                                                    errorType: errMsg,
+                                                    errorMessage: errorMessage,
+                                                    detectedMimeType: mimeInfo?.type,
+                                                    detectedExtension: selectedScript.referenceAudioURL?.split('.').pop(),
+                                                    canPlayType: canPlay,
+                                                    currentSrc: audio?.currentSrc,
+                                                    networkState: audio?.networkState,
+                                                    readyState: audio?.readyState
+                                                });
+                                                // Only show toast on format not supported
+                                                if (errorCode === 4) {
+                                                    toast.error('Audio format not supported. MP3/WAV files required.');
+                                                } else if (errorCode === 2) {
+                                                    toast.error('Network error loading audio. Check server.');
+                                                }
+                                            }}
+                                        />
+                                    );
+                                })()}
+                                <p className="text-xs text-primary-600 mt-2">
+                                    {!isRecording && !audioBlob 
+                                        ? 'Listen to how the script should be pronounced before recording'
+                                        : isRecording 
+                                        ? 'Reference audio available during recording'
+                                        : 'Compare your recording with the reference pronunciation'
+                                    }
+                                </p>
+                            </div>
+                        )}
 
                         {/* Start Recording Button - At Top */}
                         {!isRecording && !audioBlob && (
@@ -453,54 +599,6 @@ export const Practice: React.FC = () => {
                                     <Mic className="h-6 w-6 mr-2" />
                                     Start Recording
                                 </button>
-
-                                {/* Reference Audio Player */}
-                                {selectedScript.referenceAudioURL && (
-                                    <div className="w-full max-w-md bg-primary-50 border-2 border-primary-200 rounded-lg p-4">
-                                        <div className="flex items-center mb-3">
-                                            <Volume2 className="h-5 w-5 text-primary-600 mr-2" />
-                                            <span className="text-sm font-medium text-primary-700">
-                                                Listen to Reference Audio First
-                                            </span>
-                                        </div>
-                                        <audio
-                                            key={selectedScript._id}
-                                            controls
-                                            controlsList="nodownload"
-                                            preload="auto"
-                                            style={{
-                                                width: '100%',
-                                                outline: 'none',
-                                            }}
-                                            onError={(e: any) => {
-                                                const audio = e.target;
-                                                const errorCode = audio?.error?.code;
-                                                const errorCodes: {[key: number]: string} = {
-                                                    1: 'MEDIA_ERR_ABORTED',
-                                                    2: 'MEDIA_ERR_NETWORK',
-                                                    3: 'MEDIA_ERR_DECODE',
-                                                    4: 'MEDIA_ERR_SRC_NOT_SUPPORTED - File format not supported. Please upload MP3 or WAV'
-                                                };
-                                                const errMsg = errorCodes[errorCode] || 'Unknown error';
-                                                console.error(`Audio Error for "${selectedScript.title}":`, {
-                                                    url: selectedScript.referenceAudioURL,
-                                                    errorCode,
-                                                    errorType: errMsg,
-                                                    fileSize: audio?.src ? 'Check if file is too large (>10MB)' : 'N/A'
-                                                });
-                                                toast.error(`Unable to play audio. Please re-upload as MP3 or WAV format.`);
-                                            }}
-                                        >
-                                            <source src={selectedScript.referenceAudioURL} type="audio/webm" />
-                                            <source src={selectedScript.referenceAudioURL} type="audio/mpeg" />
-                                            <source src={selectedScript.referenceAudioURL} type="audio/wav" />
-                                            Your browser does not support the audio element.
-                                        </audio>
-                                        <p className="text-xs text-primary-600 mt-2">
-                                            Listen to how the script should be pronounced before recording
-                                        </p>
-                                    </div>
-                                )}
                             </div>
                         )}
 
@@ -668,8 +766,69 @@ export const Practice: React.FC = () => {
                     ) : practiceResult.transcript && (
                         <div className="mb-6">
                             <div>
-                                <h3 className="font-medium text-gray-900 mb-2">Your Speech (Transcribed)</h3>
-                                <div className="bg-gray-50 p-3 rounded-lg text-sm">
+                                <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between mb-2">
+                                    <h3 className="font-medium text-gray-900">Your Speech (Transcribed)</h3>
+                                    <div className="flex flex-wrap items-center gap-2 justify-end">
+                                        <button
+                                            onClick={playReferenceAudio}
+                                            className="btn-secondary flex items-center text-xs px-3 py-2"
+                                            title="Play reference audio"
+                                        >
+                                            <Volume2 className="h-4 w-4 mr-1" />
+                                            Play Reference
+                                        </button>
+                                        <button
+                                            onClick={playStudentAudio}
+                                            className="btn-secondary flex items-center text-xs px-3 py-2"
+                                            title="Play your recording"
+                                        >
+                                            <Play className="h-4 w-4 mr-1" />
+                                            Play Student
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-wrap items-center gap-2 justify-end mb-2">
+                                    <button
+                                        onClick={() => setTranscriptFontSize(prev => Math.max(12, prev - 2))}
+                                        className="flex items-center space-x-1 px-3 py-2 text-xs border border-gray-300 rounded-lg hover:bg-gray-50"
+                                        title="Decrease transcript font size"
+                                    >
+                                        <ZoomOut className="h-3 w-3" />
+                                        <span>Smaller</span>
+                                    </button>
+                                    <button
+                                        onClick={() => setTranscriptFontSize(prev => Math.min(26, prev + 2))}
+                                        className="flex items-center space-x-1 px-3 py-2 text-xs border border-gray-300 rounded-lg hover:bg-gray-50"
+                                        title="Increase transcript font size"
+                                    >
+                                        <ZoomIn className="h-3 w-3" />
+                                        <span>Larger</span>
+                                    </button>
+                                    <select
+                                        value={transcriptFontFamily}
+                                        onChange={(e) => setTranscriptFontFamily(e.target.value as 'sans' | 'serif' | 'mono')}
+                                        className="text-xs border border-gray-300 rounded-lg px-2 py-2 bg-white"
+                                        title="Change transcript font"
+                                    >
+                                        <option value="sans">Sans</option>
+                                        <option value="serif">Serif</option>
+                                        <option value="mono">Mono</option>
+                                    </select>
+                                </div>
+
+                                <div
+                                    className="bg-gray-50 p-3 rounded-lg text-sm"
+                                    style={{
+                                        fontSize: `${transcriptFontSize}px`,
+                                        fontFamily:
+                                            transcriptFontFamily === 'serif'
+                                                ? 'ui-serif, Georgia, Cambria, "Times New Roman", Times, serif'
+                                                : transcriptFontFamily === 'mono'
+                                                ? 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace'
+                                                : 'ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif'
+                                    }}
+                                >
                                     {practiceResult.transcript}
                                 </div>
                             </div>

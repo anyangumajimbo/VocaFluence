@@ -84,7 +84,7 @@ app.use('/api/', limiter);
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
-// Add CORS headers for static files (uploads)
+// Add CORS headers for static files (uploads) - MUST be before express.static
 app.use((req, res, next) => {
     if (req.path.startsWith('/uploads')) {
         res.header('Access-Control-Allow-Origin', '*');
@@ -92,16 +92,24 @@ app.use((req, res, next) => {
         res.header('Access-Control-Allow-Headers', 'Content-Type');
         res.header('Cross-Origin-Resource-Sharing', 'true');
         
-        // Set proper MIME types for audio files
+        // Set proper MIME types for audio files with diagnostics
         if (req.path.includes('reference-audio')) {
+            logger.info(`[AUDIO] Serving audio file: ${req.path}`);
+            
             if (req.path.endsWith('.webm')) {
                 res.type('audio/webm');
+                logger.info(`[AUDIO] Set MIME type to audio/webm for: ${req.path}`);
             } else if (req.path.endsWith('.mp3')) {
                 res.type('audio/mpeg');
+                logger.info(`[AUDIO] Set MIME type to audio/mpeg for: ${req.path}`);
             } else if (req.path.endsWith('.wav')) {
                 res.type('audio/wav');
+                logger.info(`[AUDIO] Set MIME type to audio/wav for: ${req.path}`);
             } else if (req.path.endsWith('.m4a')) {
                 res.type('audio/mp4');
+                logger.info(`[AUDIO] Set MIME type to audio/mp4 for: ${req.path}`);
+            } else {
+                logger.warn(`[AUDIO] Unknown audio file extension: ${req.path}`);
             }
         }
     }
@@ -111,7 +119,23 @@ app.use((req, res, next) => {
 // Static file serving for uploads
 app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
     maxAge: '1d',
-    etag: false
+    etag: false,
+    setHeaders: (res, filePath) => {
+        // Double-check MIME type for audio files
+        if (filePath.includes('reference-audio')) {
+            if (filePath.endsWith('.webm')) {
+                res.setHeader('Content-Type', 'audio/webm');
+            } else if (filePath.endsWith('.mp3')) {
+                res.setHeader('Content-Type', 'audio/mpeg');
+            } else if (filePath.endsWith('.wav')) {
+                res.setHeader('Content-Type', 'audio/wav');
+            } else if (filePath.endsWith('.m4a')) {
+                res.setHeader('Content-Type', 'audio/mp4');
+            }
+        }
+        // Always set CORS headers for uploads
+        res.setHeader('Access-Control-Allow-Origin', '*');
+    }
 }));
 
 // Use morgan for HTTP request logging
