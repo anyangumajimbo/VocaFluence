@@ -18,7 +18,11 @@ pnpm-debug.log*
 
 # Environment variables
 .env
-.env.*
+.env.local
+.env.development.local
+.env.test.local
+# Keep production env for reference
+!.env.production
 
 # OS files
 .DS_Store
@@ -39,8 +43,10 @@ coverage/
 # package-lock.json
 
 # Ignore uploads or user-generated content (if any)
-server/uploads/
-client/public/uploads/
+# server/uploads/
+# client/public/uploads/
+# Note: Commented out temporarily to include reference audio files in git
+# For production, consider using cloud storage (S3, Cloudinary, etc.)
 
 # Ignore test coverage
 coverage/

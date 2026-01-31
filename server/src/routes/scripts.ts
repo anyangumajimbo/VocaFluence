@@ -5,30 +5,13 @@ import path from 'path';
 import fs from 'fs';
 import { authMiddleware, adminMiddleware } from '../middleware/auth';
 import { Script } from '../models/Script';
+import cloudinary from '../config/cloudinary';
+import { Readable } from 'stream';
 
 const router: Router = express.Router();
 
-// Ensure uploads directory exists
-const uploadDir = path.join(__dirname, '../../uploads/reference-audio');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
-}
-
-// Configure multer for file uploads
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        // Different folders for different types of audio
-        if (file.fieldname === 'referenceAudio') {
-            cb(null, 'uploads/reference-audio/');
-        } else {
-            cb(null, 'uploads/');
-        }
-    },
-    filename: (req, file, cb) => {
-        const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-        cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
-    }
-});
+// Configure multer to use memory storage (for Cloudinary upload)
+const storage = multer.memoryStorage();
 
 const upload = multer({
     storage: storage,
@@ -163,10 +146,49 @@ router.post('/', [
             uploadedBy: (req as any).user._id
         };
 
-        // Add reference audio URL if file was uploaded
+        // Upload audio to Cloudinary if file was uploaded
         if (req.file) {
-            // Store relative path for the URL
-            scriptData.referenceAudioURL = `/uploads/reference-audio/${req.file.filename}`;
+            try {
+                // Convert buffer to stream for Cloudinary
+                const uploadStream = cloudinary.uploader.upload_stream(
+                    {
+                        resource_type: 'video', // Cloudinary uses 'video' for audio files
+                        folder: 'vocafluence/reference-audio',
+                        public_id: `ref-audio-${Date.now()}`,
+                        format: path.extname(req.file.originalname).substring(1) || 'mp3'
+                    },
+                    (error, result) => {
+                        if (error) {
+                            console.error('Cloudinary upload error:', error);
+                        }
+                    }
+                );
+
+                // Pipe the buffer to Cloudinary
+                const bufferStream = Readable.from(req.file.buffer);
+                const uploadPromise = new Promise<any>((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream(
+                        {
+                            resource_type: 'video',
+                            folder: 'vocafluence/reference-audio',
+                            public_id: `ref-audio-${Date.now()}`,
+                            format: path.extname(req.file?.originalname || '').substring(1) || 'mp3'
+                        },
+                        (error, result) => {
+                            if (error) reject(error);
+                            else resolve(result);
+                        }
+                    );
+                    bufferStream.pipe(stream);
+                });
+
+                const uploadResult = await uploadPromise;
+                scriptData.referenceAudioURL = uploadResult.secure_url;
+                console.log('Audio uploaded to Cloudinary:', uploadResult.secure_url);
+            } catch (uploadError) {
+                console.error('Failed to upload to Cloudinary:', uploadError);
+                // Continue without audio if upload fails
+            }
         }
 
         const script = new Script(scriptData);
@@ -213,9 +235,32 @@ router.put('/:id', [
             }
         }
 
-        // Add reference audio URL if file was uploaded
+        // Upload audio to Cloudinary if file was uploaded
         if (req.file) {
-            updateData.referenceAudioURL = `/uploads/reference-audio/${req.file.filename}`;
+            try {
+                const bufferStream = Readable.from(req.file.buffer);
+                const uploadPromise = new Promise<any>((resolve, reject) => {
+                    const stream = cloudinary.uploader.upload_stream(
+                        {
+                            resource_type: 'video',
+                            folder: 'vocafluence/reference-audio',
+                            public_id: `ref-audio-${Date.now()}`,
+                            format: path.extname(req.file?.originalname || '').substring(1) || 'mp3'
+                        },
+                        (error, result) => {
+                            if (error) reject(error);
+                            else resolve(result);
+                        }
+                    );
+                    bufferStream.pipe(stream);
+                });
+
+                const uploadResult = await uploadPromise;
+                updateData.referenceAudioURL = uploadResult.secure_url;
+                console.log('Audio uploaded to Cloudinary:', uploadResult.secure_url);
+            } catch (uploadError) {
+                console.error('Failed to upload to Cloudinary:', uploadError);
+            }
         }
 
         const script = await Script.findByIdAndUpdate(

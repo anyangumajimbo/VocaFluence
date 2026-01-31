@@ -59,8 +59,22 @@ interface PracticeResult {
 const getAudioMimeType = (url: string | undefined): { url: string; type: string } | null => {
     if (!url) return null;
     
-    // If URL is relative, prepend the server URL
-    // Use the same API URL configuration as the rest of the app
+    // If URL is already a full Cloudinary URL, use it directly
+    if (url.startsWith('http://') || url.startsWith('https://')) {
+        // Detect MIME type from URL
+        if (url.includes('.webm')) {
+            return { url, type: 'audio/webm' };
+        } else if (url.includes('.mp3')) {
+            return { url, type: 'audio/mpeg' };
+        } else if (url.includes('.wav')) {
+            return { url, type: 'audio/wav' };
+        } else if (url.includes('.m4a')) {
+            return { url, type: 'audio/mp4' };
+        }
+        return { url, type: 'audio/*' };
+    }
+    
+    // For relative URLs (backward compatibility with old filesystem paths)
     const apiBaseUrl = import.meta.env.VITE_API_URL || 
         (window.location.hostname === 'localhost' 
             ? 'http://localhost:5000/api' 
@@ -68,7 +82,7 @@ const getAudioMimeType = (url: string | undefined): { url: string; type: string 
     
     // Remove /api suffix to get the server base URL
     const serverUrl = apiBaseUrl.replace(/\/api$/, '');
-    const fullUrl = url.startsWith('http') ? url : `${serverUrl}${url}`;
+    const fullUrl = `${serverUrl}${url}`;
     
     if (url.endsWith('.webm')) {
         return { url: fullUrl, type: 'audio/webm' };
