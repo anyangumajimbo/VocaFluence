@@ -3,17 +3,20 @@
 ## ✅ What Was Fixed
 
 ### Database Issues
+
 - [x] Identified invalid audio file references in MongoDB
 - [x] Removed reference to non-existent file: `/uploads/reference-audio/referenceAudio-1769792844171-22136941.mp3`
 - [x] Verified valid reference exists: `/uploads/reference-audio/referenceAudio-1769662974472-332081710.mp3`
 
 ### Client-Side Issues
+
 - [x] Added `getAudioMimeType()` helper function
 - [x] Fixed audio element to use correct MIME type for file extension
 - [x] Added comprehensive debug logging (onLoadStart, onLoadedMetadata, onCanPlay, onError)
 - [x] Simplified source tag rendering to avoid multiple MIME type conflicts
 
 ### Server-Side Issues
+
 - [x] Enhanced express.static middleware with setHeaders callback
 - [x] Ensured MIME types are correctly set for all audio file formats
 - [x] Verified CORS headers are present for audio files
@@ -22,13 +25,16 @@
 ## 🧪 Testing Steps
 
 ### Step 1: Start the Server
+
 ```bash
 cd server
 pnpm dev
 ```
+
 Should see server logs with `[AUDIO]` prefix for file requests.
 
 ### Step 2: Test in Browser
+
 1. Go to http://localhost:5173/practice
 2. Select a script with reference audio
 3. Check browser console for:
@@ -37,12 +43,14 @@ Should see server logs with `[AUDIO]` prefix for file requests.
    - `[AUDIO] Can play: /uploads/reference-audio/...`
 
 ### Step 3: Test Audio Playback
+
 1. Click the audio player play button
 2. Audio should start playing without errors
 3. No "Unable to play audio" toast notification should appear
 4. Should NOT see `[AUDIO ERROR]` in console
 
 ### Step 4: Verify Network Request
+
 1. Open DevTools Network tab
 2. Look for request to `/uploads/reference-audio/referenceAudio-*.mp3` (or .webm, .wav)
 3. Check Response Headers:
@@ -57,6 +65,7 @@ Should see server logs with `[AUDIO]` prefix for file requests.
 ## 📝 Expected Behavior
 
 ### Success Case
+
 ```
 ✅ Script loads with reference audio
 ✅ Audio file exists on server
@@ -67,6 +76,7 @@ Should see server logs with `[AUDIO]` prefix for file requests.
 ```
 
 ### Failure Case (if audio is missing)
+
 ```
 ❌ Script has referenceAudioURL
 ❌ File doesn't exist on server
@@ -79,6 +89,7 @@ Should see server logs with `[AUDIO]` prefix for file requests.
 ### If Audio Still Doesn't Play
 
 1. **Check browser console for `[AUDIO ERROR]`:**
+
    ```
    MEDIA_ERR_NETWORK (2) → CORS issue
    MEDIA_ERR_SRC_NOT_SUPPORTED (4) → MIME type mismatch
@@ -86,11 +97,13 @@ Should see server logs with `[AUDIO]` prefix for file requests.
    ```
 
 2. **Verify file exists:**
+
    ```bash
    ls -la server/uploads/reference-audio/
    ```
 
 3. **Run database fix:**
+
    ```bash
    cd server
    node fix-audio-references.js
@@ -105,6 +118,7 @@ Should see server logs with `[AUDIO]` prefix for file requests.
 ### If CORS Error Appears
 
 Server middleware should auto-add these headers:
+
 ```
 Access-Control-Allow-Origin: *
 Access-Control-Allow-Methods: GET, HEAD, OPTIONS
@@ -127,16 +141,19 @@ If still failing, check that middleware runs BEFORE express.static().
 Before deploying to production:
 
 1. **Run database fix:**
+
    ```bash
    pnpm --prefix server node fix-audio-references.js
    ```
 
 2. **Verify uploads directory exists:**
+
    ```bash
    mkdir -p server/uploads/reference-audio
    ```
 
 3. **Set proper permissions:**
+
    ```bash
    chmod 755 server/uploads server/uploads/reference-audio
    chmod 644 server/uploads/reference-audio/*
@@ -155,6 +172,7 @@ Before deploying to production:
 ## 📱 Expected Log Output
 
 ### Browser Console
+
 ```
 [AUDIO] Rendering source for: /uploads/reference-audio/referenceAudio-1769662974472-332081710.mp3
 Object { url: "/uploads/reference-audio/referenceAudio-1769662974472-332081710.mp3", type: "audio/mpeg" }
@@ -165,6 +183,7 @@ Object { mimeType: "audio/mpeg", canPlayType: "probably" }
 ```
 
 ### Server Logs
+
 ```
 [AUDIO] Serving audio file: /uploads/reference-audio/referenceAudio-1769662974472-332081710.mp3
 [AUDIO] Set MIME type to audio/mpeg for: /uploads/reference-audio/referenceAudio-1769662974472-332081710.mp3

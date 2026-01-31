@@ -60,9 +60,14 @@ const getAudioMimeType = (url: string | undefined): { url: string; type: string 
     if (!url) return null;
     
     // If URL is relative, prepend the server URL
-    const serverUrl = window.location.hostname === 'localhost' 
-        ? 'http://localhost:5000' 
-        : window.location.origin;
+    // Use the same API URL configuration as the rest of the app
+    const apiBaseUrl = import.meta.env.VITE_API_URL || 
+        (window.location.hostname === 'localhost' 
+            ? 'http://localhost:5000/api' 
+            : '/api');
+    
+    // Remove /api suffix to get the server base URL
+    const serverUrl = apiBaseUrl.replace(/\/api$/, '');
     const fullUrl = url.startsWith('http') ? url : `${serverUrl}${url}`;
     
     if (url.endsWith('.webm')) {

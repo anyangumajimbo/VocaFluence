@@ -23,24 +23,27 @@ Users were getting "Unable to play audio" errors when trying to listen to refere
 **File:** `client/src/pages/Practice.tsx`
 
 **Changes:**
+
 - Added `getAudioMimeType()` helper function that detects file extension and returns correct MIME type
 - Modified audio element to render only ONE source tag with matching MIME type
 - Added comprehensive debug logging for audio loading/playback events
 
 ```typescript
-const getAudioMimeType = (url: string | undefined): { url: string; type: string } | null => {
-    if (!url) return null;
-    
-    if (url.endsWith('.webm')) {
-        return { url, type: 'audio/webm' };
-    } else if (url.endsWith('.mp3')) {
-        return { url, type: 'audio/mpeg' };
-    } else if (url.endsWith('.wav')) {
-        return { url, type: 'audio/wav' };
-    } else if (url.endsWith('.m4a')) {
-        return { url, type: 'audio/mp4' };
-    }
-    return { url, type: 'audio/*' };
+const getAudioMimeType = (
+  url: string | undefined,
+): { url: string; type: string } | null => {
+  if (!url) return null;
+
+  if (url.endsWith(".webm")) {
+    return { url, type: "audio/webm" };
+  } else if (url.endsWith(".mp3")) {
+    return { url, type: "audio/mpeg" };
+  } else if (url.endsWith(".wav")) {
+    return { url, type: "audio/wav" };
+  } else if (url.endsWith(".m4a")) {
+    return { url, type: "audio/mp4" };
+  }
+  return { url, type: "audio/*" };
 };
 ```
 
@@ -49,29 +52,33 @@ const getAudioMimeType = (url: string | undefined): { url: string; type: string 
 **File:** `server/src/index.ts`
 
 **Changes:**
+
 - Added `setHeaders` callback in express.static to ensure MIME types are correctly set
 - Added comprehensive logging for audio file requests
 - Ensured CORS headers are always present for audio files
 - Added double-checking of MIME types at the static file serving level
 
 ```typescript
-app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
-    maxAge: '1d',
+app.use(
+  "/uploads",
+  express.static(path.join(__dirname, "../uploads"), {
+    maxAge: "1d",
     etag: false,
     setHeaders: (res, filePath) => {
-        // Set correct MIME type for audio files
-        if (filePath.includes('reference-audio')) {
-            if (filePath.endsWith('.webm')) {
-                res.setHeader('Content-Type', 'audio/webm');
-            } else if (filePath.endsWith('.mp3')) {
-                res.setHeader('Content-Type', 'audio/mpeg');
-            }
-            // ... etc
+      // Set correct MIME type for audio files
+      if (filePath.includes("reference-audio")) {
+        if (filePath.endsWith(".webm")) {
+          res.setHeader("Content-Type", "audio/webm");
+        } else if (filePath.endsWith(".mp3")) {
+          res.setHeader("Content-Type", "audio/mpeg");
         }
-        // Always set CORS headers
-        res.setHeader('Access-Control-Allow-Origin', '*');
-    }
-}));
+        // ... etc
+      }
+      // Always set CORS headers
+      res.setHeader("Access-Control-Allow-Origin", "*");
+    },
+  }),
+);
 ```
 
 ### 3. Database Fix: Remove Invalid References
@@ -79,6 +86,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
 **File:** `server/fix-audio-references.js`
 
 **What it does:**
+
 - Connects to MongoDB
 - Finds all scripts with `referenceAudioURL`
 - Checks if referenced files actually exist in `server/uploads/reference-audio/`
@@ -86,6 +94,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
 - Optionally updates references to similar files if found
 
 **Results:**
+
 ```
 ✅ Total scripts checked: 2
 ✅ Valid references: 1
@@ -93,6 +102,7 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
 ```
 
 **To run the fix:**
+
 ```bash
 cd server
 node fix-audio-references.js
@@ -101,6 +111,7 @@ node fix-audio-references.js
 ## Current State
 
 ### Valid Audio Files:
+
 ✅ `1769440258583-218332505.wav` - Being used
 ✅ `1769441890405-22226016.wav` - Available
 ✅ `referenceAudio-1769661313154-250373471.webm` - Available
@@ -109,6 +120,7 @@ node fix-audio-references.js
 ✅ `referenceAudio-1769662974472-332081710.mp3` - Being used by "Alignerr Exam"
 
 ### Fixed Issues:
+
 - ✅ "Alignerr Exam" - Audio playback working
 - ✅ "France: les nouveautés de la rentrée scolaire" - Invalid reference removed
 
