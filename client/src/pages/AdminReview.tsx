@@ -36,6 +36,21 @@ interface Activity {
         adminName: string
         createdAt: string
     }
+    oralExamSession?: {
+        question: string
+        messages: { role: 'user' | 'assistant' | 'system'; content: string }[]
+        evaluation?: {
+            coherence?: number
+            vocabulaire?: number
+            grammaire?: number
+            prononciation?: number
+            totalScore?: number
+            pointsForts?: string[]
+            axesAmelioration?: string[]
+            commentaireGlobal?: string
+        }
+        createdAt: string
+    } | null
 }
 
 interface Comment {
@@ -559,6 +574,41 @@ const AdminReview: React.FC = () => {
                                 <h4 className="font-medium text-gray-700 mb-2">Text Content</h4>
                                 <p className="text-gray-600 leading-relaxed text-sm">{selectedActivity.textContent}</p>
                             </div>
+
+                            {/* Oral Exam Transcript + AI Comments */}
+                            {selectedActivity.activityType === 'oral_exam' && selectedActivity.oralExamSession && (
+                                <div className="mb-4">
+                                    <h4 className="font-medium text-gray-700 mb-2">Oral Exam Conversation</h4>
+                                    <div className="space-y-3 max-h-[240px] overflow-y-auto bg-gray-50 border border-gray-200 rounded-lg p-3">
+                                        {selectedActivity.oralExamSession.messages
+                                            .filter(msg => msg.role !== 'system')
+                                            .map((msg, idx) => (
+                                                <div key={idx} className={`p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-50 ml-6' : 'bg-green-50 mr-6'}`}>
+                                                    <div className={`font-semibold text-sm mb-1 ${msg.role === 'user' ? 'text-blue-700' : 'text-green-700'}`}>
+                                                        {msg.role === 'user' ? 'Student' : 'Examiner'}
+                                                    </div>
+                                                    <div className="text-gray-800 text-sm leading-relaxed">{msg.content}</div>
+                                                </div>
+                                            ))}
+                                    </div>
+
+                                    {selectedActivity.oralExamSession.evaluation && (
+                                        <div className="mt-3 bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                                            <h5 className="font-semibold text-yellow-800 mb-2">AI Comments & Marks</h5>
+                                            {selectedActivity.oralExamSession.evaluation.totalScore !== undefined && (
+                                                <div className="text-sm text-gray-700 mb-2">
+                                                    <span className="font-semibold">Score:</span> {selectedActivity.oralExamSession.evaluation.totalScore}
+                                                </div>
+                                            )}
+                                            {selectedActivity.oralExamSession.evaluation.commentaireGlobal && (
+                                                <p className="text-gray-700 text-sm leading-relaxed">
+                                                    {selectedActivity.oralExamSession.evaluation.commentaireGlobal}
+                                                </p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            )}
 
                             {/* Audio Player */}
                             {selectedActivity.audioBuffer && (

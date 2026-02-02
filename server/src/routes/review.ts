@@ -3,6 +3,7 @@ import { authMiddleware } from '../middleware/auth';
 import { User } from '../models/User';
 import { ActivityLog } from '../models/ActivityLog';
 import Comment from '../models/Comment';
+import OralExamSession from '../models/OralExamSession';
 import logger from '../utils/logger';
 import multer from 'multer';
 import path from 'path';
@@ -168,6 +169,11 @@ router.get('/review/students/:studentId/activities', authMiddleware, isAdmin, as
                 const lastComment = await Comment.findOne({ activityId: activity._id })
                     .sort({ createdAt: -1 })
                     .populate('adminId', 'name');
+
+                let oralExamSession: any = null;
+                if (activity.activityType === 'oral_exam' && activity.relatedId) {
+                    oralExamSession = await OralExamSession.findById(activity.relatedId).select('question messages evaluation createdAt');
+                }
                 
                 return {
                     ...activity.toObject(),
@@ -177,6 +183,7 @@ router.get('/review/students/:studentId/activities', authMiddleware, isAdmin, as
                         adminName: (lastComment.adminId as any).name,
                         createdAt: lastComment.createdAt,
                     } : null,
+                    oralExamSession: oralExamSession ? oralExamSession.toObject() : null,
                 };
             })
         );

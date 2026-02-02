@@ -10,6 +10,7 @@ interface Evaluation {
     vocabulaire?: number;
     grammaire?: number;
     prononciation?: number;
+    totalScore?: number;
     pointsForts?: string[];
     axesAmelioration?: string[];
     commentaireGlobal?: string;
@@ -18,8 +19,10 @@ interface Evaluation {
 export interface OralExamSessionDocument extends Document {
     user: mongoose.Types.ObjectId;
     question: string;
+    topicId?: string;
     messages: Message[];
     evaluation?: Evaluation;
+    evaluationSaved?: boolean;
     createdAt: Date;
 }
 
@@ -33,6 +36,7 @@ const EvaluationSchema = new Schema<Evaluation>({
     vocabulaire: Number,
     grammaire: Number,
     prononciation: Number,
+    totalScore: Number,
     pointsForts: [String],
     axesAmelioration: [String],
     commentaireGlobal: String
@@ -41,8 +45,10 @@ const EvaluationSchema = new Schema<Evaluation>({
 const OralExamSessionSchema = new Schema<OralExamSessionDocument>({
     user: { type: Schema.Types.ObjectId, ref: 'User', required: true },
     question: { type: String, required: true },
+    topicId: { type: String, required: false },
     messages: { type: [MessageSchema], required: true },
     evaluation: { type: EvaluationSchema, required: false },
+    evaluationSaved: { type: Boolean, default: false },
     createdAt: { type: Date, default: Date.now }
 });
 

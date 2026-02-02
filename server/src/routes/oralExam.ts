@@ -4,10 +4,11 @@ import multer from 'multer';
 import fs from 'fs-extra';
 import path from 'path';
 import { ChatCompletionMessageParam } from 'openai/resources/chat/completions';
-  import OralExamSession from '../models/OralExamSession';
-import mongoose from 'mongoose';
+import OralExamSession from '../models/OralExamSession';
 import ffmpeg from 'fluent-ffmpeg';
 import stream from 'stream';
+import { authMiddleware } from '../middleware/auth';
+import { ActivityLog } from '../models/ActivityLog';
 
 // Set FFmpeg path - try system PATH first, then fallback to common Windows location
 if (process.platform === 'win32') {
@@ -48,12 +49,66 @@ const convertToMP3 = (filePath: string): Promise<Buffer> => {
 };
 
 const router: Router = express.Router();
+router.use(authMiddleware);
 
 // Define your own Message type for MongoDB
 interface Message {
     role: 'user' | 'assistant' | 'system';
     content: string;
 }
+
+interface EvaluationData {
+    coherence?: number;
+    vocabulaire?: number;
+    grammaire?: number;
+    prononciation?: number;
+    totalScore?: number;
+    pointsForts?: string[];
+    axesAmelioration?: string[];
+    commentaireGlobal?: string;
+}
+
+const extractEvaluation = (message: string): EvaluationData => {
+    const evaluation: EvaluationData = {};
+
+    const scorePatterns: Record<string, RegExp> = {
+        coherence: /coh[ée]rence\s*:?\s*(\d+)/i,
+        vocabulaire: /vocabulaire\s*:?\s*(\d+)/i,
+        grammaire: /grammaire\s*:?\s*(\d+)/i,
+        prononciation: /prononciation\s*:?\s*(\d+)/i,
+        totalScore: /total\s*:?\s*(\d+)/i
+    };
+
+    Object.entries(scorePatterns).forEach(([key, pattern]) => {
+        const match = message.match(pattern);
+        if (match) {
+            (evaluation as any)[key] = parseInt(match[1], 10);
+        }
+    });
+
+    const pointsFortsMatch = message.match(/points forts\s*:?\s*([^\n]+)/i);
+    if (pointsFortsMatch) {
+        evaluation.pointsForts = pointsFortsMatch[1].split(',').map(p => p.trim()).filter(Boolean);
+    }
+
+    const axesMatch = message.match(/axes d['’]am[ée]lioration\s*:?\s*([^\n]+)/i);
+    if (axesMatch) {
+        evaluation.axesAmelioration = axesMatch[1].split(',').map(a => a.trim()).filter(Boolean);
+    }
+
+    evaluation.commentaireGlobal = message;
+
+    if (!evaluation.totalScore) {
+        const scores = [evaluation.coherence, evaluation.vocabulaire, evaluation.grammaire, evaluation.prononciation]
+            .filter((v): v is number => typeof v === 'number');
+        if (scores.length > 0) {
+            const avg = scores.reduce((a, b) => a + b, 0) / scores.length;
+            evaluation.totalScore = Math.round(avg * 20); // scale 0-5 -> 0-100
+        }
+    }
+
+    return evaluation;
+};
 
 const DELF_B2_SYSTEM_PROMPT = `
 Vous êtes examinateur officiel du DELF B2. Vous suivez strictement la structure de l'épreuve orale :
@@ -72,8 +127,7 @@ const upload = multer({ dest: 'uploads/' }); // Saves to disk
 // POST /api/oral-exam/session (start new session)
 router.post('/session', async (req: Request, res: Response, next: NextFunction) => {
     try {
-        // Create a proper ObjectId for the user
-        const userId = new mongoose.Types.ObjectId();
+        const userId = (req as any).user._id;
         
         // Get topic data from frontend request
         const { questionTitle, questionText, source, topicId } = req.body;
@@ -172,9 +226,31 @@ router.post('/session/:sessionId/message', async (req: Request, res: Response, n
         });
         const aiMessage = completion.choices[0]?.message?.content || '';
         session.messages.push({ role: 'assistant', content: aiMessage });
-        // If evaluation is present in AI message, extract and save (simple check)
-        if (/Cohérence|Richesse du vocabulaire|Correction grammaticale|Prononciation|points forts|axes d'amélioration|commentaire global/i.test(aiMessage)) {
-            session.evaluation = { commentaireGlobal: aiMessage };
+        // If evaluation is present in AI message, extract and save
+        if (/Coh[ée]rence|Richesse du vocabulaire|Correction grammaticale|Prononciation|points forts|axes d['’]am[ée]lioration|commentaire global|total/i.test(aiMessage)) {
+            const evaluation = extractEvaluation(aiMessage);
+            session.evaluation = evaluation;
+
+            if (!session.evaluationSaved) {
+                const durationSeconds = Math.max(0, Math.floor((Date.now() - new Date(session.createdAt).getTime()) / 1000));
+                const scoreValue = evaluation.totalScore ?? undefined;
+
+                const activityLog = new ActivityLog({
+                    userId: session.user,
+                    activityType: 'oral_exam',
+                    title: session.question,
+                    description: 'Oral exam session completed',
+                    textContent: session.question,
+                    score: scoreValue,
+                    duration: durationSeconds,
+                    transcript: userMessage,
+                    feedback: aiMessage,
+                    relatedId: session._id
+                });
+
+                await activityLog.save();
+                session.evaluationSaved = true;
+            }
         }
         await session.save();
         return res.json({ aiMessage, sessionId });

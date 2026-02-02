@@ -54,13 +54,11 @@ const OralExam: React.FC = () => {
     const [recording, setRecording] = useState(false);
     const [mediaRecorder, setMediaRecorder] = useState<MediaRecorder | null>(null);
     const audioChunksRef = useRef<Blob[]>([]);
-    const [transcript, setTranscript] = useState<string | null>(null);
     const [showHistory, setShowHistory] = useState(false);
     const [isPlaying, setIsPlaying] = useState(false);
-    const [isPlayingStudentAudio, setIsPlayingStudentAudio] = useState(false);
-    const [currentAudioBlob, setCurrentAudioBlob] = useState<Blob | null>(null);
     const examinerAudioRef = useRef<HTMLAudioElement | null>(null);
     const [isTranscribing, setIsTranscribing] = useState(false);
+    const lastPlayedAssistantIndexRef = useRef<number>(-1);
 
     // New flow state
     const [phase, setPhase] = useState<ExamPhase>('idle');
@@ -193,18 +191,6 @@ const OralExam: React.FC = () => {
         }
     };
 
-    const togglePlayPause = async () => {
-        const currentMessage = getCurrentExaminerMessage();
-        if (currentMessage) {
-            if (isPlaying) {
-                // Pause current playback
-                try { examinerAudioRef.current?.pause(); } catch { }
-                setIsPlaying(false);
-            } else {
-                await playAudio(currentMessage);
-            }
-        }
-    };
 
     // ---------- Flow helpers ----------
     const handleStartExamClick = () => {
@@ -272,6 +258,26 @@ const OralExam: React.FC = () => {
         setPhase('results');
     };
 
+    const requestFinalEvaluation = async () => {
+        if (!sessionId) return;
+        setLoading(true);
+        try {
+            await sendMessageWithText("Merci. Veuillez fournir l'évaluation finale complète (notes, points forts, axes d'amélioration, commentaire global)." );
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handleEndExamClick = async () => {
+        // Stop recording if any
+        if (mediaRecorder && mediaRecorder.state !== 'inactive') {
+            try { mediaRecorder.stop(); } catch { }
+        }
+        setRecording(false);
+        await requestFinalEvaluation();
+        setPhase('results');
+    };
+
     useEffect(() => {
         return () => {
             if (prepTimerRef.current) window.clearInterval(prepTimerRef.current);
@@ -286,7 +292,6 @@ const OralExam: React.FC = () => {
     };
 
     const startRecording = async () => {
-        setTranscript(null);
         setError(null);
 
         // Detect audio capabilities
@@ -362,8 +367,9 @@ const OralExam: React.FC = () => {
 
             const res = await api.post('/oral-exam/transcribe', formData);
             const data = res.data;
-            setTranscript(data.transcript);
-            setCurrentAudioBlob(audioBlob); // Store the audio blob for playback
+            if (data?.transcript) {
+                await sendMessageWithText(data.transcript);
+            }
         } catch (err: any) {
             const serverMsg = err?.response?.data?.error || err.message || 'Transcription failed';
             setError(serverMsg);
@@ -373,39 +379,6 @@ const OralExam: React.FC = () => {
         }
     };
 
-    const playStudentAudio = () => {
-        if (!currentAudioBlob) return;
-
-        setIsPlayingStudentAudio(true);
-        const audioUrl = URL.createObjectURL(currentAudioBlob);
-        const audio = new Audio(audioUrl);
-
-        audio.onended = () => {
-            setIsPlayingStudentAudio(false);
-        };
-
-        audio.onerror = () => {
-            setIsPlayingStudentAudio(false);
-            alert('Erreur lors de la lecture audio.');
-        };
-
-        audio.play().catch(() => {
-            setIsPlayingStudentAudio(false);
-            alert('Erreur lors de la lecture audio.');
-        });
-    };
-
-    const reRecord = () => {
-        setTranscript(null);
-        setCurrentAudioBlob(null);
-        setIsPlayingStudentAudio(false);
-    };
-
-    const sendTranscript = async () => {
-        if (!transcript || !sessionId) return;
-        setTranscript(null);
-        await sendMessageWithText(transcript);
-    };
 
     const sendMessageWithText = async (text: string) => {
         setLoading(true);
@@ -430,10 +403,26 @@ const OralExam: React.FC = () => {
         }
     };
 
-    // Get current examiner message (latest assistant message)
-    const getCurrentExaminerMessage = () => {
+    useEffect(() => {
+        if (phase !== 'exam') return;
         const assistantMessages = messages.filter(msg => msg.role === 'assistant');
-        return assistantMessages[assistantMessages.length - 1]?.content || '';
+        if (assistantMessages.length === 0) return;
+        const latestIndex = messages.lastIndexOf(assistantMessages[assistantMessages.length - 1]);
+        if (latestIndex <= lastPlayedAssistantIndexRef.current) return;
+        lastPlayedAssistantIndexRef.current = latestIndex;
+        const latestMessage = assistantMessages[assistantMessages.length - 1]?.content;
+        if (latestMessage) {
+            void playAudio(latestMessage);
+        }
+    }, [messages, phase]);
+
+    // Get current examiner message (latest assistant message)
+
+    const getExamStatus = () => {
+        if (recording) return { label: 'Recording… Tap to stop', tone: 'text-red-600' };
+        if (isTranscribing || loading) return { label: 'Processing…', tone: 'text-gray-600' };
+        if (isPlaying) return { label: 'Examiner speaking…', tone: 'text-blue-600' };
+        return { label: 'Tap the microphone to speak', tone: 'text-gray-600' };
     };
 
     // Parse evaluation from AI message
@@ -496,20 +485,6 @@ const OralExam: React.FC = () => {
         return evaluation as Evaluation;
     };
 
-    // Component to render highlighted transcript
-    const HighlightedTranscript: React.FC<{ text: string }> = ({ text }) => {
-        return (
-            <div className="bg-blue-50 p-3 rounded border">
-                <p className="text-gray-800 italic leading-relaxed">
-                    {text.split(' ').map((word, index) => (
-                        <span key={index} className="text-gray-800">
-                            {word}{index < text.split(' ').length - 1 && ' '}
-                        </span>
-                    ))}
-                </p>
-            </div>
-        );
-    };
 
     return (
         <div className="min-h-screen bg-gray-50">
@@ -658,113 +633,48 @@ const OralExam: React.FC = () => {
                     <div className="space-y-6">
                         <div className="flex items-center justify-between">
                             <h2 className="text-xl font-semibold text-gray-800">Salle d'examen</h2>
-                            <div className="text-lg font-mono bg-red-600 text-white px-3 py-1 rounded">{formatTime(examSecondsLeft)}</div>
+                            <div className="flex items-center gap-3">
+                                <button
+                                    className="bg-gray-900 hover:bg-gray-800 text-white px-4 py-2 rounded-lg text-sm font-semibold shadow-sm transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-400"
+                                    onClick={handleEndExamClick}
+                                    disabled={loading}
+                                >
+                                    End Exam
+                                </button>
+                                <div className="text-lg font-mono bg-red-600 text-white px-3 py-1 rounded">{formatTime(examSecondsLeft)}</div>
+                            </div>
                         </div>
 
-                        {/* Examiner's Box */}
-                        <div className="bg-white rounded-lg shadow-md border border-gray-200">
-                            <div className="px-4 py-3 bg-green-50 border-b border-green-200 rounded-t-lg">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <h3 className="font-semibold text-green-800">EXAMINATEUR</h3>
-                                        <p className="text-xs text-green-600 mt-1">Message actuel de l'examinateur</p>
-                                    </div>
-                                    {getCurrentExaminerMessage() && (
-                                        <button
-                                            onClick={togglePlayPause}
-                                            className="flex-shrink-0 w-12 h-12 rounded-full bg-transparent border-2 border-blue-600 text-blue-600 hover:bg-blue-50 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transform hover:scale-105 active:scale-95"
-                                            title={isPlaying ? 'Pause' : 'Play'}
-                                        >
-                                            <div className="relative w-full h-full flex items-center justify-center">
-                                                <span className={`text-lg transition-opacity duration-300 ${isPlaying ? 'opacity-0' : 'opacity-100'}`}>▶</span>
-                                                <span className={`text-lg absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${isPlaying ? 'opacity-100' : 'opacity-0'}`}>⏸</span>
-                                            </div>
-                                        </button>
+                        {/* Audio-First UI (no visible text during exam) */}
+                        <div className="bg-white rounded-2xl shadow-md border border-gray-200 p-8">
+                            <div className="flex flex-col items-center justify-center text-center space-y-4">
+                                <button
+                                    className={`relative inline-flex items-center justify-center w-24 h-24 md:w-28 md:h-28 rounded-full bg-white border-2 ${recording ? 'border-red-600' : 'border-blue-600'} shadow-xl transition-all duration-200 focus:outline-none focus:ring-4 ${recording ? 'focus:ring-red-200' : 'focus:ring-blue-200'} ${recording ? 'animate-pulse' : ''}`}
+                                    onClick={recording ? stopRecording : startRecording}
+                                    disabled={loading || isTranscribing}
+                                    title={recording ? 'Stop Recording' : 'Start Recording'}
+                                >
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        viewBox="0 0 24 24"
+                                        fill="currentColor"
+                                        className={`w-10 h-10 ${recording ? 'text-red-600' : 'text-blue-600'}`}
+                                    >
+                                        <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3z" />
+                                        <path d="M5 11a1 1 0 1 0-2 0 9 9 0 0 0 8 8v2a1 1 0 1 0 2 0v-2a9 9 0 0 0 8-8 1 1 0 1 0-2 0 7 7 0 1 1-14 0z" />
+                                    </svg>
+                                    {recording && (
+                                        <span className="absolute -bottom-2 -right-2 w-4 h-4 rounded-full bg-red-600 animate-ping"></span>
                                     )}
-                                </div>
-                            </div>
-                            <div className="p-4 min-h-[60px]">
-                                {getCurrentExaminerMessage() ? (
-                                    <div>
-                                        <p className="text-gray-800 text-lg md:text-xl leading-relaxed">{getCurrentExaminerMessage()}</p>
-                                    </div>
-                                ) : (
-                                    <p className="text-gray-500 italic">No examiner message yet</p>
-                                )}
-                            </div>
-                        </div>
+                                </button>
 
-                        {/* Transcription Box */}
-                        <div className="bg-white rounded-lg shadow-md border border-gray-200">
-                            <div className="px-4 py-3 bg-blue-50 border-b border-blue-200 rounded-t-lg">
-                                <h3 className="font-semibold text-blue-800">CANDIDAT</h3>
-                                <p className="text-xs text-blue-600 mt-1">Transcription de la parole actuelle du candidat</p>
-                            </div>
-                            <div className="p-4 min-h-[120px]">
-                                {transcript ? (
-                                    <div className="space-y-3">
-                                        <HighlightedTranscript text={transcript} />
-                                        <div className="flex gap-3">
-                                            <button
-                                                className="flex-1 bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded font-semibold shadow transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400"
-                                                onClick={sendTranscript}
-                                                disabled={loading}
-                                            >
-                                                SEND
-                                            </button>
-                                            <button
-                                                className="flex-shrink-0 w-12 h-12 rounded-full bg-transparent border-2 border-blue-600 text-blue-600 hover:bg-blue-50 transition-all duration-300 ease-in-out focus:outline-none focus:ring-2 focus:ring-blue-400 focus:ring-offset-2 transform hover:scale-105 active:scale-95"
-                                                onClick={playStudentAudio}
-                                                title={isPlayingStudentAudio ? 'Pause' : 'Play Recording'}
-                                                disabled={isPlayingStudentAudio}
-                                            >
-                                                <div className="relative w-full h-full flex items-center justify-center">
-                                                    <span className={`text-lg transition-opacity duration-300 ${isPlayingStudentAudio ? 'opacity-0' : 'opacity-100'}`}>▶</span>
-                                                    <span className={`text-lg absolute inset-0 flex items-center justify-center transition-opacity duration-300 ${isPlayingStudentAudio ? 'opacity-100' : 'opacity-0'}`}>⏸</span>
-                                                </div>
-                                            </button>
-                                            <button
-                                                className="flex-shrink-0 w-12 h-12 rounded-full bg-green-600 hover:bg-green-700 text-white shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-green-400"
-                                                onClick={reRecord}
-                                                title="Re-record"
-                                            >
-                                                <span className="text-2xl">🎤</span>
-                                            </button>
-                                        </div>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-4">
-                                        <div className="flex justify-center">
-                                            <button
-                                                className={`inline-flex items-center justify-center w-16 h-16 rounded-full bg-white border-2 ${recording ? 'border-red-600' : 'border-green-600'} shadow-lg transition-all duration-200 focus:outline-none focus:ring-2 ${recording ? 'focus:ring-red-300' : 'focus:ring-green-300'}`}
-                                                onClick={recording ? stopRecording : startRecording}
-                                                disabled={loading}
-                                                title={recording ? 'Stop Recording' : 'Start Recording'}
-                                            >
-                                                <svg
-                                                    xmlns="http://www.w3.org/2000/svg"
-                                                    viewBox="0 0 24 24"
-                                                    fill="currentColor"
-                                                    className={`w-8 h-8 ${recording ? 'text-red-600' : 'text-green-600'}`}
-                                                >
-                                                    <path d="M12 14a3 3 0 0 0 3-3V7a3 3 0 1 0-6 0v4a3 3 0 0 0 3 3z" />
-                                                    <path d="M5 11a1 1 0 1 0-2 0 9 9 0 0 0 8 8v2a1 1 0 1 0 2 0v-2a9 9 0 0 0 8-8 1 1 0 1 0-2 0 7 7 0 1 1-14 0z" />
-                                                </svg>
-                                            </button>
-                                        </div>
-                                        <div className="text-center">
-                                            {isTranscribing ? (
-                                                <div className="inline-flex items-center gap-2 text-gray-600">
-                                                    <span className="relative flex h-2 w-2">
-                                                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
-                                                        <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500"></span>
-                                                    </span>
-                                                    <span className="text-sm">Traitement en cours…</span>
-                                                </div>
-                                            ) : (
-                                                <p className="text-gray-600 text-sm">{recording ? 'Recording... Click to stop' : 'Click microphone to start recording'}</p>
-                                            )}
-                                        </div>
+                                <div className={`text-sm font-medium ${getExamStatus().tone}`}>{getExamStatus().label}</div>
+
+                                {(isTranscribing || loading) && (
+                                    <div className="flex items-center justify-center gap-2">
+                                        <span className="inline-block w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+                                        <span className="inline-block w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+                                        <span className="inline-block w-2 h-2 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
                                     </div>
                                 )}
                             </div>

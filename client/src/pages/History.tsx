@@ -33,6 +33,31 @@ interface Activity {
     duration: number
     transcript?: string
     feedback?: string
+    relatedId?: string
+    createdAt: string
+}
+
+interface OralExamEvaluation {
+    coherence?: number
+    vocabulaire?: number
+    grammaire?: number
+    prononciation?: number
+    totalScore?: number
+    pointsForts?: string[]
+    axesAmelioration?: string[]
+    commentaireGlobal?: string
+}
+
+interface OralExamMessage {
+    role: 'user' | 'assistant' | 'system'
+    content: string
+}
+
+interface OralExamSession {
+    _id: string
+    question: string
+    messages: OralExamMessage[]
+    evaluation?: OralExamEvaluation
     createdAt: string
 }
 
@@ -64,6 +89,9 @@ export const History: React.FC = () => {
     const [audioLoading, setAudioLoading] = useState<string | null>(null)
     const [recordingCounts, setRecordingCounts] = useState<Record<string, number>>({})
     const audioRef = useRef<HTMLAudioElement | null>(null)
+    const [showOralHistory, setShowOralHistory] = useState(false)
+    const [oralSession, setOralSession] = useState<OralExamSession | null>(null)
+    const [oralLoading, setOralLoading] = useState(false)
 
     const ACTIVITY_TYPE_LABELS: Record<ActivityType, { label: string; icon: any; color: string }> = {
         practice: { label: 'Practice', icon: Book, color: 'bg-blue-100 text-blue-800' },
@@ -153,6 +181,21 @@ export const History: React.FC = () => {
             toast.error('Failed to load audio')
         } finally {
             setAudioLoading(null)
+        }
+    }
+
+    const openOralHistory = async (relatedId?: string) => {
+        if (!relatedId) return
+        try {
+            setOralLoading(true)
+            const response = await api.get(`/oral-exam/session/${relatedId}`)
+            setOralSession(response.data.session)
+            setShowOralHistory(true)
+        } catch (error) {
+            console.error('Error fetching oral exam session:', error)
+            toast.error('Failed to load oral exam history')
+        } finally {
+            setOralLoading(false)
         }
     }
 
@@ -321,7 +364,8 @@ export const History: React.FC = () => {
                         const typeInfo = ACTIVITY_TYPE_LABELS[activity.activityType]
                         const Icon = typeInfo.icon
                         const titleCount = recordingCounts[activity.title] || 0
-                        const hasRecording = activity.score !== undefined
+                        const hasMarks = activity.score !== undefined
+                        const hasRecording = activity.activityType === 'practice' && activity.score !== undefined
 
                         return (
                             <div key={activity._id} className="bg-white rounded-lg shadow-md p-6 hover:shadow-lg transition-shadow">
@@ -353,7 +397,7 @@ export const History: React.FC = () => {
                                 )}
 
                                 {/* Recording Details (Only if has recording) */}
-                                {hasRecording && (
+                                {hasMarks && (
                                     <>
                                         {/* Marks, Date, Recording Count */}
                                         <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
@@ -413,20 +457,37 @@ export const History: React.FC = () => {
 
                                         {/* Play Recording Button - MOST IMPORTANT */}
                                         <div className="flex gap-2 pt-4 border-t border-gray-200">
-                                            <button
-                                                onClick={() => playAudio(activity._id)}
-                                                disabled={audioLoading === activity._id}
-                                                className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
-                                            >
-                                                {audioLoading === activity._id ? (
-                                                    <Loader className="h-4 w-4 animate-spin" />
-                                                ) : playingId === activity._id ? (
-                                                    <Pause className="h-4 w-4" />
-                                                ) : (
-                                                    <Play className="h-4 w-4" />
-                                                )}
-                                                {playingId === activity._id ? 'Playing...' : '🎤 Play Recording'}
-                                            </button>
+                                            {hasRecording && (
+                                                <button
+                                                    onClick={() => playAudio(activity._id)}
+                                                    disabled={audioLoading === activity._id}
+                                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-semibold"
+                                                >
+                                                    {audioLoading === activity._id ? (
+                                                        <Loader className="h-4 w-4 animate-spin" />
+                                                    ) : playingId === activity._id ? (
+                                                        <Pause className="h-4 w-4" />
+                                                    ) : (
+                                                        <Play className="h-4 w-4" />
+                                                    )}
+                                                    {playingId === activity._id ? 'Playing...' : '🎤 Play Recording'}
+                                                </button>
+                                            )}
+
+                                            {activity.activityType === 'oral_exam' && (
+                                                <button
+                                                    onClick={() => openOralHistory(activity.relatedId)}
+                                                    disabled={oralLoading}
+                                                    className="flex-1 flex items-center justify-center gap-2 px-4 py-3 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors font-semibold"
+                                                >
+                                                    {oralLoading ? (
+                                                        <Loader className="h-4 w-4 animate-spin" />
+                                                    ) : (
+                                                        <Mic className="h-4 w-4" />
+                                                    )}
+                                                    View Conversation
+                                                </button>
+                                            )}
                                         </div>
                                     </>
                                 )}
@@ -469,6 +530,61 @@ export const History: React.FC = () => {
                     >
                         Next
                     </button>
+                </div>
+            )}
+
+            {/* Oral Exam History Modal */}
+            {showOralHistory && (
+                <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+                    <div className="bg-white rounded-lg shadow-xl w-11/12 max-w-2xl max-h-[80vh] overflow-hidden">
+                        <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                            <h3 className="font-semibold text-gray-800">Conversation History</h3>
+                            <button
+                                className="text-gray-600 hover:text-gray-800"
+                                onClick={() => setShowOralHistory(false)}
+                            >
+                                ✕
+                            </button>
+                        </div>
+                        <div className="p-4 overflow-y-auto" style={{ maxHeight: '65vh' }}>
+                            {oralSession ? (
+                                <div className="space-y-4">
+                                    <div className="text-sm text-gray-600">
+                                        <span className="font-semibold">Sujet:</span> {oralSession.question}
+                                    </div>
+
+                                    <div className="space-y-3">
+                                        {oralSession.messages
+                                            .filter(msg => msg.role !== 'system')
+                                            .map((msg, idx) => (
+                                                <div key={idx} className={`p-3 rounded-lg ${msg.role === 'user' ? 'bg-blue-50 ml-8' : 'bg-green-50 mr-8'}`}>
+                                                    <div className={`font-semibold text-base mb-1 ${msg.role === 'user' ? 'text-blue-700' : 'text-green-700'}`}>
+                                                        {msg.role === 'user' ? 'You' : 'Examiner'}:
+                                                    </div>
+                                                    <div className="text-gray-800 text-base md:text-lg leading-relaxed">{msg.content}</div>
+                                                </div>
+                                            ))}
+                                    </div>
+
+                                    {oralSession.evaluation && (
+                                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                                            <div className="font-semibold text-yellow-800 mb-2">Evaluation</div>
+                                            {oralSession.evaluation.totalScore !== undefined && (
+                                                <div className="text-sm text-gray-700 mb-2">
+                                                    <span className="font-semibold">Score:</span> {oralSession.evaluation.totalScore}
+                                                </div>
+                                            )}
+                                            {oralSession.evaluation.commentaireGlobal && (
+                                                <p className="text-gray-700 leading-relaxed">{oralSession.evaluation.commentaireGlobal}</p>
+                                            )}
+                                        </div>
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="text-gray-500 italic text-center">No conversation history yet</p>
+                            )}
+                        </div>
+                    </div>
                 </div>
             )}
         </div>
