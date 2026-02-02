@@ -1,4 +1,4 @@
-import express, { Application } from 'express';
+import express, { Application, Request, Response, NextFunction } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import rateLimit from 'express-rate-limit';
@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import mongoose from 'mongoose';
 import path from 'path';
 import morgan from 'morgan';
+import { v4 as uuidv4 } from 'uuid';
 import logger from './utils/logger';
 
 // Import routes
@@ -138,18 +139,50 @@ app.use('/uploads', express.static(path.join(__dirname, '../uploads'), {
     }
 }));
 
-// Use morgan for HTTP request logging
-app.use(morgan('combined', {
-    stream: {
-        write: (message: string) => logger.info(message.trim()),
-    },
-}));
-
-// Add route logging to debug
-app.use((req, res, next) => {
-    console.log(`Incoming ${req.method} ${req.path}`);
+// Request ID tracking middleware - adds unique ID for tracing across logs
+app.use((req: Request, res: Response, next: NextFunction) => {
+    const requestId = uuidv4();
+    (req as any).id = requestId;
+    res.setHeader('X-Request-Id', requestId);
     next();
 });
+
+// Morgan skip filter - skip unnecessary endpoints
+const morganSkip = (req: Request): boolean => {
+    // Skip health checks
+    if (req.path === '/api/health') return true;
+    // Skip static files
+    if (req.path.startsWith('/uploads')) return true;
+    return false;
+};
+
+// Custom Morgan token for request ID
+morgan.token('request-id', (req: Request) => (req as any).id || '-');
+
+// Environment-aware Morgan format
+const getMorganFormat = (): string => {
+    if (process.env.NODE_ENV === 'production') {
+        // Structured format for production (easy to parse)
+        return ':request-id | :remote-addr | :method :url | :status | :res[content-length] bytes | :response-time ms';
+    }
+    // Concise format for development
+    return ':request-id | :method :url | :status | :response-time ms';
+};
+
+// Morgan HTTP request logging with Winston integration
+app.use(
+    morgan(getMorganFormat(), {
+        skip: morganSkip,
+        stream: {
+            write: (message: string) => {
+                // Extract request ID from message
+                const requestIdMatch = message.match(/^([\w-]+) \|/);
+                const requestId = requestIdMatch ? requestIdMatch[1] : undefined;
+                logger.info(message.trim(), { requestId });
+            },
+        },
+    })
+);
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {
