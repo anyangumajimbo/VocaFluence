@@ -27,6 +27,52 @@ const upload = multer({
     }
 });
 
+/**
+ * @openapi
+ * /api/scripts:
+ *   get:
+ *     summary: Get all scripts
+ *     description: Retrieve paginated list of practice scripts with optional filters
+ *     tags:
+ *       - Scripts
+ *     parameters:
+ *       - in: query
+ *         name: language
+ *         schema:
+ *           type: string
+ *           enum: [english, french, swahili]
+ *         description: Filter by single language
+ *       - in: query
+ *         name: difficulty
+ *         schema:
+ *           type: string
+ *           enum: [beginner, intermediate, advanced]
+ *         description: Filter by difficulty level
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           default: 12
+ *     responses:
+ *       200:
+ *         description: List of scripts
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 scripts:
+ *                   type: array
+ *                   items:
+ *                     $ref: '#/components/schemas/Script'
+ *                 pagination:
+ *                   type: object
+ */
 // Get all scripts
 router.get('/', async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {

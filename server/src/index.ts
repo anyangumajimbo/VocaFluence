@@ -7,6 +7,8 @@ import mongoose from 'mongoose';
 import path from 'path';
 import morgan from 'morgan';
 import { v4 as uuidv4 } from 'uuid';
+import swaggerUi from 'swagger-ui-express';
+import swaggerSpec from './config/swagger';
 import logger from './utils/logger';
 
 // Import routes
@@ -42,6 +44,7 @@ app.use(helmet());
 
 // CORS configuration - accept localhost, Vercel main domain, and all Vercel preview URLs
 const corsOrigins = [
+    'http://localhost:5000', // Allow Swagger UI on same server
     'http://localhost:5173',
     'http://127.0.0.1:5173',
     'http://192.168.0.102:5173',
@@ -188,6 +191,39 @@ app.use(
 app.get('/api/health', (req, res) => {
     res.json({ status: 'OK', timestamp: new Date().toISOString() });
 });
+
+/**
+ * @openapi
+ * /api/health:
+ *   get:
+ *     summary: Health check endpoint
+ *     description: Check if the API server is running
+ *     tags:
+ *       - Health
+ *     responses:
+ *       200:
+ *         description: Server is healthy
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 status:
+ *                   type: string
+ *                   example: OK
+ *                 timestamp:
+ *                   type: string
+ *                   format: date-time
+ */
+
+// Swagger documentation endpoint (development only)
+if (process.env.NODE_ENV !== 'production') {
+    app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+        customCss: '.swagger-ui .topbar { display: none }',
+        customSiteTitle: 'VocaFluence API Docs',
+    }));
+    logger.info('📚 Swagger documentation available at /api-docs');
+}
 
 // API routes
 app.use('/api/auth', authRoutes);
