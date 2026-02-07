@@ -9,7 +9,7 @@ const router: Router = express.Router();
  * GET /api/activity/history
  * Get user's activity history with optional filtering by type
  * Query params:
- * - type: 'practice' | 'oral_exam' | 'vocabulary' | 'listening' (optional)
+ * - type: 'practice' | 'oral_exam' | 'vocabulary' | 'listening' | 'grammar' (optional)
  * - limit: number (default: 20)
  * - skip: number (default: 0)
  */
@@ -19,7 +19,7 @@ router.get('/history', authMiddleware, async (req: Request, res: Response, next:
         const { type, limit = 20, skip = 0 } = req.query;
 
         const query: any = { userId };
-        if (type && ['practice', 'oral_exam', 'vocabulary', 'listening'].includes(type as string)) {
+        if (type && ['practice', 'oral_exam', 'vocabulary', 'listening', 'grammar'].includes(type as string)) {
             query.activityType = type as ActivityType;
         }
 
@@ -139,7 +139,8 @@ router.get('/categories', authMiddleware, async (req: Request, res: Response, ne
             practice: { count: 0, lastActivity: new Date(0) },
             oral_exam: { count: 0, lastActivity: new Date(0) },
             vocabulary: { count: 0, lastActivity: new Date(0) },
-            listening: { count: 0, lastActivity: new Date(0) }
+            listening: { count: 0, lastActivity: new Date(0) },
+            grammar: { count: 0, lastActivity: new Date(0) }
         };
 
         categories.forEach((cat: any) => {

@@ -20,6 +20,7 @@ import reminderRoutes from './routes/reminders';
 import oralExamRoutes from './routes/oralExam';
 import activityRoutes from './routes/activity';
 import reviewRoutes from './routes/review';
+import grammarRoutes from './routes/grammar';
 
 // Import middleware
 import { errorHandler } from './middleware/errorHandler';
@@ -234,6 +235,7 @@ app.use('/api/reminders', authMiddleware, reminderRoutes);
 app.use('/api/oral-exam', oralExamRoutes);
 app.use('/api/activity', authMiddleware, activityRoutes);
 app.use('/api/admin', authMiddleware, reviewRoutes);
+app.use('/api/grammar', grammarRoutes);
 
 // Global error handling middleware
 app.use(errorHandler);

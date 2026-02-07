@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document } from 'mongoose';
 
-export type ActivityType = 'practice' | 'oral_exam' | 'vocabulary' | 'listening';
+export type ActivityType = 'practice' | 'oral_exam' | 'vocabulary' | 'listening' | 'grammar';
 
 export interface IActivityLog extends Document {
     userId: mongoose.Types.ObjectId;
@@ -31,7 +31,7 @@ const ActivityLogSchema = new Schema<IActivityLog>(
         },
         activityType: {
             type: String,
-            enum: ['practice', 'oral_exam', 'vocabulary', 'listening'],
+            enum: ['practice', 'oral_exam', 'vocabulary', 'listening', 'grammar'],
             required: true,
             index: true
         },
