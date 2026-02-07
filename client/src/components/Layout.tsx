@@ -13,7 +13,8 @@ import {
     FileText,
     Menu,
     X,
-    MessageSquare
+    MessageSquare,
+    BookMarked
 } from 'lucide-react'
 
 export const Layout: React.FC = () => {
@@ -27,6 +28,7 @@ export const Layout: React.FC = () => {
         { name: 'Scripts', href: '/scripts', icon: BookOpen },
         { name: 'Practice', href: '/practice', icon: Mic },
         { name: 'Oral Exam', href: '/oral-exam', icon: Mic },
+        { name: 'Grammar', href: '/grammar', icon: BookMarked },
         { name: 'History', href: '/history', icon: History },
         { name: 'Feedback', href: '/feedback', icon: MessageSquare },
         { name: 'Profile', href: '/profile', icon: User },
@@ -37,6 +39,7 @@ export const Layout: React.FC = () => {
         { name: 'Manage Scripts', href: '/admin/scripts', icon: FileText },
         { name: 'Manage Users', href: '/admin/users', icon: Users },
         { name: 'Review Center', href: '/admin/review', icon: MessageSquare },
+        { name: 'Manage Grammar', href: '/admin/grammar', icon: BookMarked },
     ]
 
     const handleLogout = () => {

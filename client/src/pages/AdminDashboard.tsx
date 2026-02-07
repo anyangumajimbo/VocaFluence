@@ -259,6 +259,14 @@ export const AdminDashboard: React.FC = () => {
                         <Users className="h-5 w-5 mr-2" />
                         Manage Users
                     </button>
+
+                    <button
+                        onClick={() => navigate('/admin/grammar')}
+                        className="btn-secondary flex items-center justify-center hover:bg-gray-300 transition-colors duration-200"
+                    >
+                        <Globe className="h-5 w-5 mr-2" />
+                        Grammar Lessons
+                    </button>
                 </div>
             </div>
         </div>

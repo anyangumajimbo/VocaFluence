@@ -16,7 +16,9 @@ import { AdminScripts } from './pages/AdminScripts'
 import { AdminUsers } from './pages/AdminUsers'
 import AdminReview from './pages/AdminReview'
 import Feedback from './pages/Feedback'
-import OralExam from './pages/OralExam';
+import OralExam from './pages/OralExam'
+import Grammar from './pages/Grammar'
+import AdminGrammar from './pages/AdminGrammar';
 
 function App() {
     return (
@@ -88,6 +90,14 @@ function App() {
                     <Route index element={<Feedback />} />
                 </Route>
 
+                <Route path="/grammar" element={
+                    <ProtectedRoute>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<Grammar />} />
+                </Route>
+
                 {/* Admin routes */}
                 <Route path="/admin" element={
                     <ProtectedRoute requireAdmin>
@@ -119,6 +129,14 @@ function App() {
                     </ProtectedRoute>
                 }>
                     <Route index element={<AdminReview />} />
+                </Route>
+
+                <Route path="/admin/grammar" element={
+                    <ProtectedRoute requireAdmin>
+                        <Layout />
+                    </ProtectedRoute>
+                }>
+                    <Route index element={<AdminGrammar />} />
                 </Route>
 
                 {/* Catch all - redirect to login if not authenticated */}

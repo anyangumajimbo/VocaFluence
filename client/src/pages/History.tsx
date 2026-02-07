@@ -14,12 +14,13 @@ import {
     Mic,
     Volume,
     Loader,
-    Repeat2
+    Repeat2,
+    PenTool
 } from 'lucide-react'
 import { format } from 'date-fns'
 import toast from 'react-hot-toast'
 
-type ActivityType = 'practice' | 'oral_exam' | 'vocabulary' | 'listening'
+type ActivityType = 'practice' | 'oral_exam' | 'vocabulary' | 'listening' | 'grammar'
 
 interface Activity {
     _id: string
@@ -34,6 +35,17 @@ interface Activity {
     transcript?: string
     feedback?: string
     relatedId?: string
+    createdAt: string
+}
+
+interface GrammarHistory {
+    _id: string
+    topicId: string
+    topicName: string
+    level: string
+    scores: Record<string, number>
+    avgScore: number
+    completedAt: string
     createdAt: string
 }
 
@@ -78,6 +90,7 @@ interface CategoryCount {
 
 export const History: React.FC = () => {
     const [activities, setActivities] = useState<Activity[]>([])
+    const [grammarHistory, setGrammarHistory] = useState<GrammarHistory[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [selectedType, setSelectedType] = useState<ActivityType | 'all'>('all')
@@ -97,11 +110,13 @@ export const History: React.FC = () => {
         practice: { label: 'Practice', icon: Book, color: 'bg-blue-100 text-blue-800' },
         oral_exam: { label: 'Oral Exam', icon: Mic, color: 'bg-purple-100 text-purple-800' },
         vocabulary: { label: 'Vocabulary', icon: Volume, color: 'bg-green-100 text-green-800' },
-        listening: { label: 'Listening', icon: Volume2, color: 'bg-orange-100 text-orange-800' }
+        listening: { label: 'Listening', icon: Volume2, color: 'bg-orange-100 text-orange-800' },
+        grammar: { label: 'Grammar', icon: PenTool, color: 'bg-indigo-100 text-indigo-800' }
     }
 
     useEffect(() => {
         fetchActivities()
+        fetchGrammarHistory()
         fetchStats()
         fetchCategories()
     }, [currentPage, selectedType])
@@ -140,6 +155,22 @@ export const History: React.FC = () => {
             toast.error('Failed to fetch history')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const fetchGrammarHistory = async () => {
+        try {
+            const params: any = {
+                limit: 10,
+                skip: (currentPage - 1) * 10
+            }
+
+            const response = await api.get('/grammar/history', { params })
+            if (response.data.data.history) {
+                setGrammarHistory(response.data.data.history)
+            }
+        } catch (error) {
+            console.error('Error fetching grammar history:', error)
         }
     }
 
@@ -203,6 +234,24 @@ export const History: React.FC = () => {
         activity.title.toLowerCase().includes(searchTerm.toLowerCase())
     )
 
+    const getGrammarAsActivities = (): Activity[] => {
+        return grammarHistory.map(grammar => ({
+            _id: grammar._id,
+            activityType: 'grammar',
+            title: grammar.topicName,
+            score: grammar.avgScore,
+            duration: 0,
+            createdAt: grammar.completedAt || grammar.createdAt,
+            description: `Level: ${grammar.level}`
+        })) as Activity[]
+    }
+
+    const allActivitiesWithGrammar = selectedType === 'all' 
+        ? [...filteredActivities, ...getGrammarAsActivities()]
+        : selectedType === 'grammar'
+        ? getGrammarAsActivities().filter(a => a.title.toLowerCase().includes(searchTerm.toLowerCase()))
+        : filteredActivities
+
     const getScoreColor = (score?: number) => {
         if (!score) return 'text-gray-600'
         if (score >= 80) return 'text-green-600'
@@ -217,6 +266,9 @@ export const History: React.FC = () => {
     }
 
     const getCategoryCount = (type: ActivityType): number => {
+        if (type === 'grammar') {
+            return grammarHistory.length
+        }
         return categories?.[type]?.count || 0
     }
 
@@ -317,7 +369,7 @@ export const History: React.FC = () => {
                                     : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
                             }`}
                         >
-                            All ({stats?.totalActivities || 0})
+                            All ({(stats?.totalActivities || 0) + grammarHistory.length})
                         </button>
                         {Object.entries(ACTIVITY_TYPE_LABELS).map(([type, { label }]) => (
                             <button
@@ -358,9 +410,9 @@ export const History: React.FC = () => {
             </div>
 
             {/* Activities List */}
-            {filteredActivities.length > 0 ? (
+            {allActivitiesWithGrammar.length > 0 ? (
                 <div className="space-y-4">
-                    {filteredActivities.map((activity) => {
+                    {allActivitiesWithGrammar.map((activity) => {
                         const typeInfo = ACTIVITY_TYPE_LABELS[activity.activityType]
                         const Icon = typeInfo.icon
                         const titleCount = recordingCounts[activity.title] || 0
@@ -396,12 +448,22 @@ export const History: React.FC = () => {
                                     </div>
                                 )}
 
+                                {/* Grammar-specific display */}
+                                {activity.activityType === 'grammar' && activity.description && (
+                                    <div className="mb-4 p-4 bg-indigo-50 rounded-lg border border-indigo-200">
+                                        <p className="text-sm font-medium text-indigo-900 mb-2">📚 Level:</p>
+                                        <p className="text-sm text-indigo-800">
+                                            {activity.description}
+                                        </p>
+                                    </div>
+                                )}
+
                                 {/* Recording Details (Only if has recording) */}
                                 {hasMarks && (
                                     <>
                                         {/* Marks, Date, Recording Count */}
                                         <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
-                                            <div className="grid grid-cols-3 gap-4">
+                                            <div className={`grid ${activity.activityType === 'grammar' ? 'grid-cols-2' : 'grid-cols-3'} gap-4`}>
                                                 {/* Score/Marks */}
                                                 <div className="text-center">
                                                     <div className={`text-2xl font-bold ${getScoreColor(activity.score)}`}>
@@ -411,7 +473,7 @@ export const History: React.FC = () => {
                                                 </div>
 
                                                 {/* Date & Time */}
-                                                <div className="text-center border-l border-r border-gray-300">
+                                                <div className={`text-center ${activity.activityType === 'grammar' ? '' : 'border-l border-r border-gray-300'}`}>
                                                     <div className="text-sm font-semibold text-gray-900">
                                                         {format(new Date(activity.createdAt), 'MMM dd, yyyy')}
                                                     </div>
@@ -420,16 +482,18 @@ export const History: React.FC = () => {
                                                     </div>
                                                 </div>
 
-                                                {/* Number of Times Recording */}
-                                                <div className="text-center">
-                                                    <div className="text-2xl font-bold text-purple-600 flex items-center justify-center gap-1">
-                                                        <Repeat2 className="h-5 w-5" />
-                                                        {titleCount}
+                                                {/* Number of Times Recording - Only for non-grammar */}
+                                                {activity.activityType !== 'grammar' && (
+                                                    <div className="text-center">
+                                                        <div className="text-2xl font-bold text-purple-600 flex items-center justify-center gap-1">
+                                                            <Repeat2 className="h-5 w-5" />
+                                                            {titleCount}
+                                                        </div>
+                                                        <div className="text-xs text-gray-600 mt-1">
+                                                            {titleCount === 1 ? 'Recording' : 'Recordings'}
+                                                        </div>
                                                     </div>
-                                                    <div className="text-xs text-gray-600 mt-1">
-                                                        {titleCount === 1 ? 'Recording' : 'Recordings'}
-                                                    </div>
-                                                </div>
+                                                )}
                                             </div>
                                         </div>
 
@@ -502,7 +566,7 @@ export const History: React.FC = () => {
                     <p className="text-gray-600">
                         {searchTerm || selectedType !== 'all'
                             ? 'Try adjusting your filters'
-                            : 'Start practicing or taking exams to see your history here'
+                            : 'Start practicing, taking exams, or learning grammar to see your history here'
                         }
                     </p>
                 </div>
