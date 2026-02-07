@@ -1,7 +1,6 @@
 import { Schema, model, Document, Types } from 'mongoose';
 
 export interface IComment extends Document {
-    _id: string;
     activityId: Types.ObjectId;
     studentId: Types.ObjectId;
     adminId: Types.ObjectId;
