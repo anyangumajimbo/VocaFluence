@@ -13,6 +13,8 @@
 - **Progress Tracking**: View history, statistics, and improvement trends
 - **Practice Schedule**: Set up daily/weekly practice reminders
 - **Dashboard**: Comprehensive overview of practice sessions and progress
+- **Grammar Practice**: Progressive grammar lessons from beginner to intermediate level with AI-scored recordings
+- **Oral Exams**: Simulated conversation practice with AI examiner to prepare for certification exams and improve speaking fluency
 
 ### 👨‍💼 Admin Features
 
@@ -205,16 +207,88 @@ VocaFluence/
 
 ### 4. Grammar Lessons (NEW!)
 
-- **Lesson Selection**: Browse 10 progressive grammar lessons by topic
-- **Access Control**: Can only access current lesson + one unlocked ahead
-- **Recording Requirement**: Must record voice reading lesson aloud
-- **AI Evaluation**: Whisper transcribes, AI calculates accuracy & fluency scores
-- **Minimum Score**: Must achieve 60+ to unlock next lesson
-- **Retry Mechanism**: Unlimited attempts to improve score
-- **Feedback**: AI-generated comments on pronunciation and pacing
-- **Progress Tracking**: Completed lessons appear in history with scores
+**Comprehensive Grammar Foundation**
 
-### 5. Progress Tracking
+VocaFluence provides a structured grammar curriculum designed to strengthen fundamental language skills through daily revision of key grammar components. The program offers an extensive collection of organized lessons spanning multiple proficiency levels, enabling consistent daily practice and reinforcement of essential grammar aspects throughout the entire year:
+
+- **Progressive Curriculum**: 365+ lessons organized by difficulty (beginner to advanced)ocung on core grammar components designed for daily revision and reinforcement across different language proficiency levels - enabling students to practice continuously throughout the year
+- **Lesson Structure**: Each lesson focuses on key grammar concepts with clear explanations and examples
+- **Recording Requirement**: Students must record themselves reading the lesson content aloud
+- **AI Evaluation**:
+  - OpenAI Whisper API transcribes the recording with high accuracy
+  - System calculates two key metrics:
+    - **Accuracy Score**: How well the transcription matches the original text
+    - **Fluency Score**: Assessment of speaking pace, rhythm, and naturalness
+  - **Final Score Formula**: `(Accuracy × 0.6) + (Fluency × 0.4)` = Overall Score (0-100)
+- **Minimum Threshold**: Must achieve 60+ score to unlock the next lesson
+- **Unlimited Retries**: Students can record unlimited times to improve their score
+- **Personalized Feedback**: AI-generated comments on pronunciation, pacing, and areas for improvement
+- **Lesson Progression**: Access control ensures structured learning (cannot skip any lesson)
+- **Progress Tracking**: All completed grammar lessons appear in student history with scores
+- **Integrated Dashboard**: Grammar progress unified with practice sessions in Activity Log
+
+**Key Features:**
+
+- ✅ Build strong grammar foundation essential for fluent conversation
+- ✅ Improve pronunciation through speaking practice
+- ✅ Develop reading fluency and speaking confidence
+- ✅ Track improvement with performance metrics
+- ✅ Prepare for certification exams with structured content
+
+### 5. Oral Exam - AI Conversation Practice (NEW!)
+
+**Certification Exam Preparation & Speaking Fluency**
+
+VocaFluence's AI-powered oral exam feature provides students with realistic conversation practice to prepare for international certification exams and dramatically improve conversational skills:
+
+- **Simulated Exam Experience**: AI examiner conducts structured conversation mimicking real certification exam formats
+- **Interactive Dialogue**:
+  - AI examiner asks questions on various topics (travel, education, daily life, current events, etc.)
+  - Student responds naturally with their microphone
+  - AI listens, understands, and generates follow-up questions based on student's answers
+- **Real-time Processing**:
+  - Audio recording with browser MediaRecorder API
+  - OpenAI Whisper API transcribes student speech
+  - GPT-based conversational AI generates contextual exam questions
+  - Audio synthesis (Text-to-Speech) plays examiner voice responses
+- **Comprehensive Evaluation**:
+  - **Grammar Score**: Accuracy of grammatical structures used
+  - **Fluency Score**: Natural flow, pacing, and confidence in speech
+  - **Vocabulary Score**: Range and appropriateness of word choices
+  - **Pronunciation Score**: Clarity and accent assessment
+  - **Overall Score**: Combined evaluation of all metrics
+- **Detailed Feedback Report**:
+  - AI-generated summary of speaker performance
+  - Strengths identified (what was done well)
+  - Areas for improvement with specific suggestions
+  - Common mistakes highlighted with corrections
+- **Multiple Exam Topics**: Choose from various exam topics to practice different subject areas
+- **Unlimited Practice Sessions**: Simulate exams as many times as needed
+- **Score History**: Track exam performance over time to monitor improvement
+- **Session Recording**: All audio and transcripts saved for review and analysis
+- **Certification Readiness**: Prepare for TOEFL, IELTS, Cambridge, and other major English,French and Kiswahili certification exams.
+
+**Exam Flow:**
+
+1. Student selects exam topic and difficulty level
+2. AI examiner greets student and explains exam structure
+3. Student hears question via audio playback
+4. Student responds by speaking (audio is recorded)
+5. AI processes response, generates new question
+6. Conversation continues for determined duration (typically 10-15 minutes)
+7. Exam concludes with comprehensive score and feedback report
+8. Student can review transcripts and compare with model answers
+
+**Key Benefits:**
+
+- ✅ Overcome anxiety by practicing with AI before real exams
+- ✅ Get instant, detailed feedback on conversational skills
+- ✅ Practice speaking naturally without grammatical constraints
+- ✅ Build confidence for high-stakes certification exams
+- ✅ Identify specific areas needing improvement
+- ✅ Track long-term progress and readiness
+
+### 6. Progress Tracking
 
 - All sessions are saved with scores and feedback
 - Grammar and practice progress unified in Activity Log
@@ -222,7 +296,7 @@ VocaFluence/
 - History page displays all practice sessions AND grammar completions
 - Progress charts show improvement over time
 
-### 6. Reminder System
+### 7. Reminder System
 
 - Students set practice schedule (daily/weekly/custom)
 - System checks for missed sessions daily
@@ -369,9 +443,27 @@ All CRUD operations include:
 
 ## 🚧 Recent Updates (February 2026)
 
-### ✅ Grammar Lessons Module with AI-Scored Recording
+### ✅ Oral Exam - AI Conversation Practice Module
 
-- **10 Progressive Lessons**: Structured curriculum from beginner to intermediate + (Lesson 1-10)
+- **AI-Powered Examiner**: Simulated conversation with intelligent AI that asks contextual follow-up questions
+- **Realistic Exam Format**: Mimics international certification exams (TOEFL, IELTS, Cambridge)
+- **Multi-Metric Evaluation**:
+  - Grammar accuracy assessment
+  - Fluency and natural speech flow
+  - Vocabulary range and appropriateness
+  - Pronunciation clarity and accent
+  - Overall communication score
+- **Real-time Processing**: Whisper transcription + GPT-based AI conversation + TTS voice synthesis
+- **Comprehensive Feedback**: Detailed report with strengths, areas for improvement, and specific suggestions
+- **Multiple Exam Topics**: Choose from various conversation topics to practice different scenarios
+- **Unlimited Practice**: Practice exams multiple times without restrictions
+- **Score History**: Track exam performance over time
+- **Certification Readiness**: Prepare specifically for major English certification exams
+
+### ✅ Grammar Lessons Module with AI-Scored Recording (Enhanced)
+
+- **365+ Progressive Lessons**: Comprehensive curriculum organized by difficulty (beginner to intermediate) with lessons designed for daily practice throughout the year
+- **Daily Practice Support**: Extensive lesson library enables consistent practice every day with diverse grammar topics and concepts
 - **Recording Requirement**: Students must record themselves reading the lesson aloud
 - **AI Scoring**: OpenAI Whisper API transcribes, calculates accuracy & fluency scores
 - **Score Formula**: `(Accuracy × 0.6) + (Fluency × 0.4)` = Overall Score
